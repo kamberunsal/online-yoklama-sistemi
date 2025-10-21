@@ -50,8 +50,19 @@ Proje, hem backend hem de frontend tarafında kararlı, işlevsel ve modern bir 
 -   Uygulama, baştan sona tutarlı ve modern bir yapıdadır.
 -   Gerçek zamanlı yoklama sistemi ve dinamik takvim özellikleri sorunsuz çalışmaktadır.
 
+## 7. Dağıtım Durumu (Render)
+
+-   **Azure dağıtımından Render'a geçiş kararı alındı.**
+-   **Backend (API):** Render üzerinde PostgreSQL veritabanı ile başarıyla dağıtıldı. (`https://yoklama-backend.onrender.com/`)
+-   **Frontend (React Uygulaması):**
+    -   Dağıtım sırasında `react-qr-reader` paketinin React 19 ile uyumsuzluğundan kaynaklanan `ERESOLVE` hatası alındı.
+    -   `QROkutucu.js` dosyası `@yudiel/react-qr-scanner` kullanacak şekilde güncellendi ve `process.env.REACT_APP_API_URL` ile backend'e bağlanacak şekilde ayarlandı.
+    -   `package.json` dosyası güncellenerek `react-qr-reader` kaldırıldı ve `@yudiel/react-qr-scanner` eklendi.
+    -   Render'daki "Publish Directory" ayarı yanlış (`npm run build` olarak ayarlanmıştı) ve `build` olarak düzeltildi.
+    -   Frontend dağıtımı tamamlandı olarak rapor edildi. (`https://yoklama-frontend.onrender.com/login`)
+    -   **Mevcut Sorun:** Telefondan frontend URL'sine (`https://yoklama-frontend.onrender.com/login`) erişildiğinde "Not Found" hatası alınıyor. Bu hatanın nedenini araştırmak için kullanıcının Render frontend dağıtım loglarını kontrol etmesi bekleniyor.
+
 **Olası Sonraki Adımlar (İsteğe Bağlı):**
 -   **Yoklama Raporları:** Öğretmenlerin veya adminlerin geçmiş yoklamaları, katılım oranlarını ve devamsızlık durumlarını görebileceği raporlama sayfaları.
 -   **Profil Sayfası:** Kullanıcıların kendi şifrelerini veya bilgilerini güncelleyebileceği bir profil sayfası.
 -   **Testler:** Projenin kararlılığını artırmak için Jest ve React Testing Library kullanarak birim (unit) ve entegrasyon testleri yazmak.
--   **Deployment:** Projeyi canlı bir sunucuya (Vercel, Render vb.) yükleyerek internet üzerinden erişilebilir hale getirmek.

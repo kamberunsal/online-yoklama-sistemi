@@ -33,7 +33,7 @@ const Register = () => {
         }
 
         try {
-            await axios.post('http://localhost:5000/api/auth/register', formData);
+            await axios.post('/api/auth/register', formData);
             setSuccess('Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz...');
             setTimeout(() => {
                 navigate('/login');
