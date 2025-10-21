@@ -71,7 +71,8 @@ const QROkutucu = () => {
 
     const handleError = (err) => {
         console.error(err);
-        setStatusMessage('QR kod okuma sırasında bir hata oluştu.');
+        const errorMessage = err?.message ? err.message : String(err);
+        setStatusMessage(`Kamera Hatası: ${errorMessage}`);
         setStatusType('error');
         setIsScanning(true); // Allow rescanning on error
     };
