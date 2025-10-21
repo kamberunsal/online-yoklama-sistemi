@@ -17,7 +17,7 @@ const db = require('./models'); // Import models to sync
 const connectDB = async () => {
     try {
         await sequelize.authenticate();
-        console.log('SQLite connection has been established successfully.');
+        console.log('PostgreSQL connection has been established successfully.');
         // Sync all models
         await db.sequelize.sync({ alter: true }); // { force: true } to drop and re-create
         console.log('All models were synchronized successfully.');
