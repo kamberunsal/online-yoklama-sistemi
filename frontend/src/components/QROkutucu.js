@@ -1,58 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { QrReader } from 'react-qr-reader';
+import { Scanner } from '@yudiel/react-qr-scanner';
 import io from 'socket.io-client';
-
-// Custom style for the scanner laser effect
-const scannerStyle = `
-  .scanner-container {
-    position: relative;
-    width: 100%;
-    padding-top: 100%; /* 1:1 Aspect Ratio */
-    overflow: hidden;
-    border-radius: 1rem; /* rounded-xl */
-  }
-  .scanner-container .qr-reader-video {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .scanner-container::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(to top, rgba(255,0,0,0.5) 2px, transparent 2px) 0 0 / 100% 20px, 
-                linear-gradient(to right, rgba(255,0,0,0.5) 2px, transparent 2px) 0 0 / 20px 100%;
-    animation: scan-border 4s linear infinite;
-    z-index: 10;
-  }
-  .scanner-container .laser {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: #ff0000;
-    box-shadow: 0 0 5px #ff0000, 0 0 10px #ff0000;
-    animation: scan-laser 2s linear infinite;
-    z-index: 20;
-  }
-  @keyframes scan-laser {
-    0% { top: 0; }
-    50% { top: 100%; }
-    100% { top: 0; }
-  }
-  @keyframes scan-border {
-    0% { background-position: 0 0, 0 0; }
-    100% { background-position: 0 -200px, -200px 0; }
-  }
-`;
 
 const QROkutucu = () => {
     const [statusMessage, setStatusMessage] = useState('Kamerayı QR koda doğru tutun...');
@@ -69,10 +18,10 @@ const QROkutucu = () => {
         };
     }, [navigate]);
 
-    const handleScan = (result, error) => {
-        if (!!result && isScanning) {
+    const handleScan = (result) => {
+        if (result && result.length > 0 && isScanning) {
             setIsScanning(false);
-            const yoklamaId = result?.text;
+            const yoklamaId = result[0].rawValue; // Get rawValue from the first result
             setStatusMessage(`Yoklama ID'si okundu. Sunucuya bağlanılıyor...`);
             setStatusType('info');
 
@@ -83,7 +32,8 @@ const QROkutucu = () => {
                 return;
             }
 
-            socket.current = io('http://localhost:5000');
+            // Use environment variable for API URL
+            socket.current = io(process.env.REACT_APP_API_URL);
 
             socket.current.on('connect', () => {
                 setStatusMessage('Sunucuya bağlandı. Yoklamaya katılım gönderiliyor...');
@@ -119,6 +69,13 @@ const QROkutucu = () => {
         }
     };
 
+    const handleError = (err) => {
+        console.error(err);
+        setStatusMessage('QR kod okuma sırasında bir hata oluştu.');
+        setStatusType('error');
+        setIsScanning(true); // Allow rescanning on error
+    };
+
     const statusColors = {
         info: 'text-gray-500 dark:text-slate-400',
         success: 'text-green-500',
@@ -127,7 +84,6 @@ const QROkutucu = () => {
 
     return (
         <>
-            <style>{scannerStyle}</style>
             <div className="min-h-screen bg-background-light dark:bg-background-dark font-display text-[#0d171b] dark:text-slate-50">
                 <main className="p-4 sm:p-6 lg:p-8">
                     <div className="max-w-md mx-auto">
@@ -143,14 +99,29 @@ const QROkutucu = () => {
                         <div className="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 md:p-8">
                             <div className="w-full max-w-xs mx-auto">
                                 {isScanning ? (
-                                    <div className="scanner-container">
-                                        <QrReader
+                                    <div className="scanner-container relative w-full pt-[100%] overflow-hidden rounded-xl">
+                                        <Scanner
                                             onResult={handleScan}
-                                            constraints={{ facingMode: 'environment' }}
-                                            videoClassName="qr-reader-video"
-                                            className="w-full h-full"
+                                            onError={handleError}
+                                            options={{
+                                                delayBetweenScanSuccess: 300, // Optional: Add a small delay to prevent multiple scans
+                                            }}
+                                            styles={{
+                                                container: {
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
+                                                    width: '100%',
+                                                    height: '100%',
+                                                },
+                                                video: {
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    objectFit: 'cover',
+                                                },
+                                            }}
                                         />
-                                        <div className="laser"></div>
+                                        {/* Laser effect can be added with custom CSS if desired, but removed for simplicity */}
                                     </div>
                                 ) : (
                                     <div className="aspect-square w-full flex flex-col justify-center items-center">
