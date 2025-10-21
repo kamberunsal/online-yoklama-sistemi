@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import api from '../../api';
 import { Link } from 'react-router-dom';
 import KullaniciDuzenleModal from './KullaniciDuzenleModal';
 import KullaniciEkleModal from './KullaniciEkleModal'; // Import the new modal
@@ -18,7 +18,7 @@ const KullaniciYonetim = () => {
     const fetchUsers = useCallback(async () => {
         try {
             const params = filter === 'all' ? {} : { rol: filter };
-            const response = await axios.get('http://localhost:5000/api/users', { params });
+            const response = await api.get('/api/users', { params });
             setUsers(response.data);
         } catch (err) {
             setError('Kullanıcılar yüklenemedi.');
@@ -41,7 +41,7 @@ const KullaniciYonetim = () => {
     const handleDelete = async (userId) => {
         if (window.confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
             try {
-                await axios.delete(`http://localhost:5000/api/users/${userId}`);
+                await api.delete(`/api/users/${userId}`);
                 setUsers(users.filter(u => u.id !== userId));
             } catch (err) {
                 setError('Kullanıcı silinirken bir hata oluştu.');

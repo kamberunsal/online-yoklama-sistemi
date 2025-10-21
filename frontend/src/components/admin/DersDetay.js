@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../api';
 
 const DersDetay = () => {
     const [ders, setDers] = useState(null);
@@ -12,7 +12,7 @@ const DersDetay = () => {
 
     const fetchDersDetails = useCallback(async () => {
         try {
-            const response = await axios.get(`http://localhost:5000/api/dersler/detay/${id}`);
+            const response = await /api/dersler/detay/${id}`);
             setDers(response.data);
         } catch (err) {
             setError('Ders detayları yüklenemedi.');
@@ -21,7 +21,7 @@ const DersDetay = () => {
 
     const fetchAllStudents = useCallback(async () => {
         try {
-            const response = await axios.get('http://localhost:5000/api/users?rol=ogrenci');
+            const response = await axios.get('/api/users?rol=ogrenci');
             setAllStudents(response.data);
         } catch (err) {
             console.error("Tüm öğrenciler yüklenemedi", err);
@@ -35,7 +35,7 @@ const DersDetay = () => {
 
     const handleAddStudent = async (ogrenciId) => {
         try {
-            await axios.post(`http://localhost:5000/api/dersler/${id}/ogrenciler`, { ogrenciId });
+            await api.post(`/api/dersler/${id}/ogrenciler`, { ogrenciId });
             fetchDersDetails(); // Refresh the list
         } catch (err) {
             alert('Öğrenci eklenirken bir hata oluştu.');
@@ -45,7 +45,7 @@ const DersDetay = () => {
     const handleRemoveStudent = async (ogrenciId) => {
         if (window.confirm('Bu öğrenciyi dersten çıkarmak istediğinizden emin misiniz?')) {
             try {
-                await axios.delete(`http://localhost:5000/api/dersler/${id}/ogrenciler/${ogrenciId}`);
+                await axios.delete(`/api/dersler/${id}/ogrenciler/${ogrenciId}`);
                 fetchDersDetails(); // Refresh the list
             } catch (err) {
                 alert('Öğrenci çıkarılırken bir hata oluştu.');

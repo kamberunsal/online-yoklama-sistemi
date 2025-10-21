@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import api from '../../api';
 import { Link } from 'react-router-dom';
 import DersEkleModal from '../DersEkleModal';
 
@@ -12,7 +12,7 @@ const DersYonetim = () => {
 
     const fetchAllDersler = useCallback(async () => {
         try {
-            const response = await axios.get('http://localhost:5000/api/dersler/all');
+            const response = await api.get('/api/dersler/all');
             setDersler(response.data);
         } catch (err) {
             setError('Dersler yüklenemedi.');
@@ -21,7 +21,7 @@ const DersYonetim = () => {
 
     const fetchTeachers = useCallback(async () => {
         try {
-            const response = await axios.get('http://localhost:5000/api/users?rol=ogretmen');
+            const response = await axios.get('/api/users?rol=ogretmen');
             setTeachers(response.data);
         } catch (err) {
             console.error("Öğretmenler yüklenemedi", err);
@@ -50,7 +50,7 @@ const DersYonetim = () => {
     const handleDelete = async (dersId) => {
         if (window.confirm('Bu dersi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
             try {
-                await axios.delete(`http://localhost:5000/api/dersler/${dersId}`);
+                await api.delete(`/api/dersler/${dersId}`);
                 setDersler(dersler.filter(d => d.id !== dersId));
             } catch (err) {
                 setError('Ders silinirken bir hata oluştu.');

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../../api';
 
 const KullaniciEkleModal = ({ isOpen, onClose, onUserAdded }) => {
     const [formData, setFormData] = useState({
@@ -25,7 +25,7 @@ const KullaniciEkleModal = ({ isOpen, onClose, onUserAdded }) => {
         }
         setError('');
         try {
-            await axios.post('http://localhost:5000/api/auth/register', formData);
+            await api.post('/api/auth/register', formData);
             onUserAdded();
             onClose();
         } catch (err) {

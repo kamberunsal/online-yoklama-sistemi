@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../api';
 
 const KullaniciDuzenleModal = ({ isOpen, onClose, onUserUpdated, userToEdit }) => {
     const [formData, setFormData] = useState({ ad: '', soyad: '', email: '', rol: 'ogrenci', okulNumarasi: '' });
@@ -25,7 +25,7 @@ const KullaniciDuzenleModal = ({ isOpen, onClose, onUserUpdated, userToEdit }) =
         e.preventDefault();
         setError('');
         try {
-            await axios.put(`http://localhost:5000/api/users/${userToEdit.id}`, formData);
+            await api.put(`/api/users/${userToEdit.id}`, formData);
             onUserUpdated();
             onClose();
         } catch (err) {
