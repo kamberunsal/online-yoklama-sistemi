@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 
 const Register = () => {
     const [formData, setFormData] = useState({
@@ -33,7 +33,7 @@ const Register = () => {
         }
 
         try {
-            await axios.post('/api/auth/register', formData);
+            await api.post('/api/auth/register', formData);
             setSuccess('Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz...');
             setTimeout(() => {
                 navigate('/login');
