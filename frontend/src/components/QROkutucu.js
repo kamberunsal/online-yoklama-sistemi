@@ -33,7 +33,9 @@ const QROkutucu = () => {
             }
 
             // Use environment variable for API URL
-            socket.current = io(process.env.REACT_APP_API_URL);
+            socket.current = io(process.env.REACT_APP_API_URL || 'http://localhost:5000', {
+                transports: ['websocket']
+            });
 
             socket.current.on('connect', () => {
                 setStatusMessage('Sunucuya bağlandı. Yoklamaya katılım gönderiliyor...');
