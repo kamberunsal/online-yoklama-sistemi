@@ -12,7 +12,7 @@ const DersDetay = () => {
 
     const fetchDersDetails = useCallback(async () => {
         try {
-            const response = await /api/dersler/detay/${id}`);
+            const response = await api.get(`/api/dersler/detay/${id}`);
             setDers(response.data);
         } catch (err) {
             setError('Ders detayları yüklenemedi.');
@@ -21,7 +21,7 @@ const DersDetay = () => {
 
     const fetchAllStudents = useCallback(async () => {
         try {
-            const response = await axios.get('/api/users?rol=ogrenci');
+            const response = await api.get('/api/users?rol=ogrenci');
             setAllStudents(response.data);
         } catch (err) {
             console.error("Tüm öğrenciler yüklenemedi", err);
@@ -45,7 +45,7 @@ const DersDetay = () => {
     const handleRemoveStudent = async (ogrenciId) => {
         if (window.confirm('Bu öğrenciyi dersten çıkarmak istediğinizden emin misiniz?')) {
             try {
-                await axios.delete(`/api/dersler/${id}/ogrenciler/${ogrenciId}`);
+                await api.delete(`/api/dersler/${id}/ogrenciler/${ogrenciId}`);
                 fetchDersDetails(); // Refresh the list
             } catch (err) {
                 alert('Öğrenci çıkarılırken bir hata oluştu.');

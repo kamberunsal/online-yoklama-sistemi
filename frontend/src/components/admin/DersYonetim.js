@@ -21,7 +21,7 @@ const DersYonetim = () => {
 
     const fetchTeachers = useCallback(async () => {
         try {
-            const response = await axios.get('/api/users?rol=ogretmen');
+            const response = await api.get('/api/users?rol=ogretmen');
             setTeachers(response.data);
         } catch (err) {
             console.error("Öğretmenler yüklenemedi", err);
