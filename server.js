@@ -7,7 +7,11 @@ require('dotenv').config({ path: './config/.env' });
 const app = express();
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+    origin: 'https://yoklama-frontend.onrender.com',
+    optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Database Connection with Sequelize
