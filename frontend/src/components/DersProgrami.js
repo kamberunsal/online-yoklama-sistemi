@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -37,7 +37,7 @@ const DersProgrami = () => {
     const fetchDersler = useCallback(async (userId) => {
         if (userId) {
             try {
-                const response = await axios.get(`http://localhost:5000/api/dersler/${userId}`);
+                const response = await api.get(`/api/dersler/${userId}`);
                 const transformedEvents = transformDerslerToEvents(response.data);
                 setEvents(transformedEvents);
             } catch (err) {
