@@ -59,19 +59,24 @@ exports.register = async (req, res) => {
 // @access  Public
 exports.login = async (req, res) => {
     const { email, password } = req.body;
+    console.log(`[Login] Attempting login for email: ${email}`);
 
     try {
         // Check if user exists
         const user = await User.findOne({ where: { email } });
         if (!user) {
+            console.log(`[Login] User not found for email: ${email}`);
             return res.status(400).json({ msg: 'Invalid credentials' });
         }
+        console.log(`[Login] User found: ${user.id}`);
 
         // Check password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+            console.log(`[Login] Password mismatch for user: ${user.id}`);
             return res.status(400).json({ msg: 'Invalid credentials' });
         }
+        console.log(`[Login] Password matched for user: ${user.id}`);
 
         // Return jsonwebtoken
         const payload = {
@@ -80,13 +85,18 @@ exports.login = async (req, res) => {
                 rol: user.rol
             }
         };
+        console.log(`[Login] Creating JWT payload for user: ${user.id}`);
 
         jwt.sign(
             payload,
             process.env.JWT_SECRET || 'your_jwt_secret',
             { expiresIn: '5h' },
             (err, token) => {
-                if (err) throw err;
+                if (err) {
+                    console.error('[Login] JWT Sign Error:', err);
+                    return res.status(500).send('Server error during token generation');
+                }
+                console.log(`[Login] JWT signed successfully. Sending response for user: ${user.id}`);
                 res.json({
                     token,
                     user: { id: user.id, rol: user.rol, ad: user.ad, soyad: user.soyad }
@@ -95,7 +105,7 @@ exports.login = async (req, res) => {
         );
 
     } catch (err) {
-        console.error(err.message);
+        console.error('[Login] Critical error in login controller:', err);
         res.status(500).send('Server error');
     }
 };
