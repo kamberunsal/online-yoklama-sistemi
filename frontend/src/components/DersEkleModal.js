@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 
 const DersEkleModal = ({ isOpen, onClose, onDersEklendi, teachers = [], dersToEdit }) => {
     const isEditMode = Boolean(dersToEdit);
@@ -44,11 +44,11 @@ const DersEkleModal = ({ isOpen, onClose, onDersEklendi, teachers = [], dersToEd
     const onSubmit = async e => {
         e.preventDefault();
         setError('');
-        const url = isEditMode ? `http://localhost:5000/api/dersler/${dersToEdit.id}` : 'http://localhost:5000/api/dersler';
+        const url = isEditMode ? `/api/dersler/${dersToEdit.id}` : '/api/dersler';
         const method = isEditMode ? 'put' : 'post';
 
         try {
-            await axios[method](url, dersData);
+            await api[method](url, dersData);
             onDersEklendi();
             onClose();
         } catch (err) {
