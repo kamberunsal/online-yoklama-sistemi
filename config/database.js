@@ -1,11 +1,16 @@
-
 const { Sequelize } = require('sequelize');
+require('dotenv').config();
 
-// Create a new Sequelize instance, connecting to a SQLite database.
-// The database will be stored in the 'database.sqlite' file in the project root.
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: './database.sqlite',
+// Connect to PostgreSQL using the connection URL from environment variables
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: 'postgres',
+  protocol: 'postgres',
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false // Required for Render's PostgreSQL
+    }
+  },
   logging: false // Set to console.log to see SQL queries
 });
 
