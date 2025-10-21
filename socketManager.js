@@ -43,6 +43,7 @@ const socketManager = (io) => {
 
                 // 4. Prepare student info for the teacher
                 const katilimciBilgisi = {
+                    id: student.id,
                     ad: student.ad,
                     soyad: student.soyad,
                     okulNumarasi: student.okulNumarasi
