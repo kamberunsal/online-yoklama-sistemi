@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 import { QRCodeSVG } from 'qrcode.react';
 import io from 'socket.io-client';
 
@@ -15,7 +15,7 @@ const YoklamaEkrani = () => {
 
     const fetchDersDetails = useCallback(async () => {
         try {
-            const response = await axios.get(`http://localhost:5000/api/dersler/detay/${dersId}`);
+            const response = await api.get(`/api/dersler/detay/${dersId}`);
             setDers(response.data);
         } catch (err) {
             setError('Ders detayları yüklenemedi.');
@@ -33,7 +33,7 @@ const YoklamaEkrani = () => {
 
         const startSession = async () => {
             try {
-                const response = await axios.post('http://localhost:5000/api/yoklama/baslat', {
+                const response = await api.post('/api/yoklama/baslat', {
                     dersId: dersId,
                     ogretmenId: loggedInUser.id
                 });
@@ -54,7 +54,7 @@ const YoklamaEkrani = () => {
 
     useEffect(() => {
         if (yoklamaId) {
-            socket.current = io('http://localhost:5000');
+            socket.current = io(process.env.REACT_APP_API_URL || 'http://localhost:5000');
             socket.current.emit('join-yoklama-room', yoklamaId);
             socket.current.on('yeni-katilimci', (yeniKatilimci) => {
                 setKatilanlar(prevKatilanlar => {
