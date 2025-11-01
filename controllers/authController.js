@@ -105,7 +105,45 @@ exports.login = async (req, res) => {
         );
 
     } catch (err) {
-        console.error('[Login] Critical error in login controller:', err);
-        res.status(500).send('Server error');
+
+
+// @desc    Update user password
+// @route   PUT /api/auth/update-password
+// @access  Private
+exports.updatePassword = async (req, res) => {
+    const { currentPassword, newPassword, confirmNewPassword } = req.body;
+    const userId = req.user.id;
+
+    try {
+        // Find user by ID
+        const user = await User.findByPk(userId);
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        // Check if current password is correct
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ msg: 'Mevcut şifre yanlış' });
+        }
+
+        // Check if new passwords match
+        if (newPassword !== confirmNewPassword) {
+            return res.status(400).json({ msg: 'Yeni şifreler eşleşmiyor' });
+        }
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        // Update user's password
+        user.password = hashedPassword;
+        await user.save();
+
+        res.json({ msg: 'Şifre başarıyla güncellendi' });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
     }
 };

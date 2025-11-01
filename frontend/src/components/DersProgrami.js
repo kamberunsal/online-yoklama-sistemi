@@ -6,6 +6,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import trLocale from '@fullcalendar/core/locales/tr';
 import YoklamaKayitlariModal from './YoklamaKayitlariModal'; // Yeni modal bileşeni
+import SettingsModal from './SettingsModal'; // Ayarlar modalı
 
 const transformDerslerToEvents = (dersler) => {
     if (!Array.isArray(dersler)) return [];
@@ -35,6 +36,7 @@ const DersProgrami = () => {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [isModalOpen, setIsModalOpen] = useState(false); // Modal state
     const [selectedDers, setSelectedDers] = useState(null); // Seçilen ders state
+    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false); // Ayarlar modal state
     const navigate = useNavigate();
 
     const fetchDersler = useCallback(async (userId) => {
@@ -159,12 +161,21 @@ const DersProgrami = () => {
                             </div>
                         </div>
                     </div>
-                    <button 
-                        onClick={handleLogout} 
-                        className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 flex items-center">
-                        <span className="material-symbols-outlined mr-2">logout</span>
-                        Çıkış Yap
-                    </button>
+                    <div className="flex items-center space-x-2">
+                        <button 
+                            onClick={() => setIsSettingsModalOpen(true)}
+                            className="bg-blue-500 hover:bg-blue-600 text-white font-bold p-2 rounded-full transition-colors duration-200 flex items-center justify-center"
+                            aria-label="Ayarlar"
+                        >
+                            <span className="material-symbols-outlined">settings</span>
+                        </button>
+                        <button 
+                            onClick={handleLogout} 
+                            className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 flex items-center">
+                            <span className="material-symbols-outlined mr-2">logout</span>
+                            Çıkış Yap
+                        </button>
+                    </div>
                 </header>
                 <main className="p-4 sm:p-6 lg:p-8">
                     <div className="max-w-7xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-md p-4">
@@ -197,6 +208,12 @@ const DersProgrami = () => {
                     <YoklamaKayitlariModal 
                         ders={selectedDers}
                         onClose={() => setIsModalOpen(false)} 
+                    />
+                )}
+
+                {isSettingsModalOpen && (
+                    <SettingsModal 
+                        onClose={() => setIsSettingsModalOpen(false)} 
                     />
                 )}
             </div>
