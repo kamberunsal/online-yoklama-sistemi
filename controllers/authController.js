@@ -105,7 +105,10 @@ exports.login = async (req, res) => {
         );
 
     } catch (err) {
-
+        console.error('[Login] Critical error in login controller:', err);
+        res.status(500).send('Server error');
+    }
+};
 
 // @desc    Update user password
 // @route   PUT /api/auth/update-password
