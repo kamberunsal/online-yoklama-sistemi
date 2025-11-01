@@ -101,6 +101,9 @@ exports.removeStudentFromAttendance = async (req, res) => {
 
         await yoklama.removeKatilanOgrenciler(ogrenci);
 
+        res.json({ msg: 'Öğrenci yoklamadan kaldırıldı' });
+    } catch (err) {
+        console.error(err.message);
         res.status(500).send('Server Error');
     }
 };
