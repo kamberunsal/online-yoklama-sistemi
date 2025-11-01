@@ -80,3 +80,61 @@ exports.startAttendance = async (req, res) => {
         res.status(500).send('Server Error');
     }
 };
+
+
+// @desc    Remove a student from an attendance record
+// @route   DELETE /api/yoklama/:yoklamaId/ogrenciler/:ogrenciId
+// @access  Private (for teachers)
+exports.removeStudentFromAttendance = async (req, res) => {
+    try {
+        const { yoklamaId, ogrenciId } = req.params;
+
+        const yoklama = await Yoklama.findByPk(yoklamaId);
+        if (!yoklama) {
+            return res.status(404).json({ msg: 'Yoklama kaydı bulunamadı' });
+        }
+
+        const ogrenci = await User.findByPk(ogrenciId);
+        if (!ogrenci) {
+            return res.status(404).json({ msg: 'Öğrenci bulunamadı' });
+        }
+
+        await yoklama.removeKatilanOgrenciler(ogrenci);
+
+        res.status(500).send('Server Error');
+    }
+};
+
+// @desc    Add a student to an attendance record manually
+// @route   POST /api/yoklama/:yoklamaId/ogrenciler
+// @access  Private (for teachers)
+exports.addStudentToAttendance = async (req, res) => {
+    try {
+        const { yoklamaId } = req.params;
+        const { ogrenciId } = req.body;
+
+        const yoklama = await Yoklama.findByPk(yoklamaId);
+        if (!yoklama) {
+            return res.status(404).json({ msg: 'Yoklama kaydı bulunamadı' });
+        }
+
+        const ogrenci = await User.findByPk(ogrenciId);
+        if (!ogrenci) {
+            return res.status(404).json({ msg: 'Öğrenci bulunamadı' });
+        }
+
+        // Add student to the attendance record
+        await yoklama.addKatilanOgrenciler(ogrenci);
+
+        // Return the newly added student's info
+        res.status(201).json(ogrenci);
+
+    } catch (err) {
+        console.error(err.message);
+        // Handle potential unique constraint errors if the student is already there
+        if (err.name === 'SequelizeUniqueConstraintError') {
+            return res.status(400).json({ msg: 'Öğrenci bu yoklamada zaten mevcut.' });
+        }
+        res.status(500).send('Server Error');
+    }
+};
