@@ -134,10 +134,26 @@ exports.addStudentToAttendance = async (req, res) => {
 
     } catch (err) {
         console.error(err.message);
-        // Handle potential unique constraint errors if the student is already there
-        if (err.name === 'SequelizeUniqueConstraintError') {
-            return res.status(400).json({ msg: 'Öğrenci bu yoklamada zaten mevcut.' });
+        res.status(500).send('Server Error');
+    }
+};
+
+// @desc    Delete an attendance record
+// @route   DELETE /api/yoklama/:id
+// @access  Private (for teachers)
+exports.deleteAttendanceRecord = async (req, res) => {
+    try {
+        const yoklama = await Yoklama.findByPk(req.params.id);
+
+        if (!yoklama) {
+            return res.status(404).json({ msg: 'Yoklama kaydı bulunamadı' });
         }
+
+        await yoklama.destroy();
+
+        res.json({ msg: 'Yoklama kaydı başarıyla silindi' });
+    } catch (err) {
+        console.error(err.message);
         res.status(500).send('Server Error');
     }
 };
