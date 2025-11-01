@@ -4,7 +4,6 @@ import './App.css';
 
 // Import components
 import Login from './components/Login';
-import Register from './components/Register';
 import DersProgrami from './components/DersProgrami';
 import YoklamaEkrani from './components/YoklamaEkrani';
 import QROkutucu from './components/QROkutucu';
@@ -29,7 +28,6 @@ function App() {
           
           {/* Auth Pages */}
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
           
           {/* General User Pages */}
           <Route path="/ders-programi" element={<DersProgrami />} />

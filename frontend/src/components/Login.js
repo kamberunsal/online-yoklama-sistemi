@@ -99,10 +99,6 @@ const Login = () => {
                             <span className="truncate">Giriş Yap</span>
                         </button>
                     </div>
-
-                     <p style={{ textAlign: 'center', marginTop: '15px' }}>
-                        Hesabınız yok mu? <Link className="text-sm text-primary hover:underline" to="/register">Kayıt Olun</Link>
-                    </p>
                 </form>
             </div>
         </div>
