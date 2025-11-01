@@ -1,5 +1,46 @@
 const { Yoklama, Ders, User } = require('../models');
 
+// @desc    Get attendance records for a course
+// @route   GET /api/yoklama/kayitlar/:dersId
+// @access  Private
+exports.getAttendanceRecordsByCourse = async (req, res) => {
+    try {
+        const yoklamalar = await Yoklama.findAll({
+            where: { dersId: req.params.dersId },
+            order: [['tarih', 'DESC']]
+        });
+        res.json(yoklamalar);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+};
+
+// @desc    Get a single attendance record by ID with student details
+// @route   GET /api/yoklama/:id
+// @access  Private
+exports.getAttendanceRecordDetails = async (req, res) => {
+    try {
+        const yoklama = await Yoklama.findByPk(req.params.id, {
+            include: [{
+                model: User,
+                as: 'katilanOgrenciler',
+                attributes: ['id', 'ad', 'soyad', 'okulNumarasi'],
+                through: { attributes: [] } // Don't include association table attributes
+            }]
+        });
+
+        if (!yoklama) {
+            return res.status(404).json({ msg: 'Yoklama kaydı bulunamadı' });
+        }
+
+        res.json(yoklama);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+};
+
 // @desc    Start a new attendance session
 // @route   POST /api/yoklama/baslat
 // @access  Private (for teachers)

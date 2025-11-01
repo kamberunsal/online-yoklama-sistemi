@@ -5,6 +5,7 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import trLocale from '@fullcalendar/core/locales/tr';
+import YoklamaKayitlariModal from './YoklamaKayitlariModal'; // Yeni modal bileşeni
 
 const transformDerslerToEvents = (dersler) => {
     if (!Array.isArray(dersler)) return [];
@@ -32,6 +33,8 @@ const DersProgrami = () => {
     const [user, setUser] = useState(null);
     const [error, setError] = useState(null);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [isModalOpen, setIsModalOpen] = useState(false); // Modal state
+    const [selectedDers, setSelectedDers] = useState(null); // Seçilen ders state
     const navigate = useNavigate();
 
     const fetchDersler = useCallback(async (userId) => {
@@ -72,9 +75,20 @@ const DersProgrami = () => {
     };
 
     const handleEventClick = (clickInfo) => {
+        const now = new Date();
+        const eventStartTime = clickInfo.event.start;
+        const eventEndTime = clickInfo.event.end;
+
         if (user.rol === 'ogretmen') {
-            navigate(`/yoklama/${clickInfo.event.id}`);
-        } else {
+            // Eğer ders şu an aktif ise yoklama ekranına git
+            if (now >= eventStartTime && now <= eventEndTime) {
+                navigate(`/yoklama/${clickInfo.event.id}`);
+            } else {
+                // Değilse, geçmiş yoklama kayıtları modalını aç
+                setSelectedDers(clickInfo.event.extendedProps);
+                setIsModalOpen(true);
+            }
+        } else { // Öğrenci ise QR okutma ekranına git
             navigate('/qr-okut');
         }
     };
@@ -178,6 +192,13 @@ const DersProgrami = () => {
                         />
                     </div>
                 </main>
+
+                {isModalOpen && (
+                    <YoklamaKayitlariModal 
+                        ders={selectedDers}
+                        onClose={() => setIsModalOpen(false)} 
+                    />
+                )}
             </div>
         </>
     );
