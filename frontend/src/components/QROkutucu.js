@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import io from 'socket.io-client';
 
 const QROkutucu = () => {
-    // 'TARIYOR', 'BEKLIYOR', 'TAMAMLANDI', 'IPTAL', 'HATA'
     const [durum, setDurum] = useState('TARIYOR');
     const [kalanSure, setKalanSure] = useState(0);
     const [mesaj, setMesaj] = useState('QR kod okuyucu hazırlanıyor...');
     
     const navigate = useNavigate();
     const socket = useRef(null);
-    const qrcodeScanner = useRef(null);
+    
+    // QR Kod okuyucu kütüphanesinin bir örneğini (instance) tutmak için ref.
+    const html5QrcodeScanner = useRef(null);
 
     // --- SOCKET.IO YÖNETİMİ ---
     useEffect(() => {
@@ -26,21 +27,17 @@ const QROkutucu = () => {
         });
 
         socket.current.on('connect', () => console.log('Socket sunucusuna bağlandı.'));
-
         socket.current.on('yoklama-basarili-bekle', ({ kalanSure }) => {
             setKalanSure(kalanSure);
             setDurum('BEKLIYOR');
         });
-
         socket.current.on('yoklama-tamamlandi', () => setDurum('TAMAMLANDI'));
         socket.current.on('yoklama-iptal-edildi', () => setDurum('IPTAL'));
-
         socket.current.on('yoklama-hata', ({ message }) => {
-            alert(`Hata: ${message}`); // Basit bir alert ile hata gösterimi
-            // Hata sonrası taramaya devam etmesi için durumu resetle
-            if(durum !== 'TARIYOR') setDurum('TARIYOR');
+            alert(`Hata: ${message}`);
+            // Hata sonrası taramaya geri dön
+            setDurum('TARIYOR');
         });
-
         socket.current.on('connect_error', (err) => {
             setMesaj(`Bağlantı Hatası: ${err.message}`);
             setDurum('HATA');
@@ -49,61 +46,70 @@ const QROkutucu = () => {
         return () => {
             if (socket.current) socket.current.disconnect();
         };
-    }, [navigate]); // Sadece ilk renderda çalışır
+    }, [navigate]);
 
-    // --- QR OKUYUCU YÖNETİMİ ---
+    // --- QR OKUYUCU YÖNETİMİ (Daha stabil hale getirildi) ---
     useEffect(() => {
-        if (durum === 'TARIYOR' && !qrcodeScanner.current) {
-            const scanner = new Html5Qrcode('qr-reader');
-            qrcodeScanner.current = scanner;
+        // Tarama durumunda değilsek ve okuyucu çalışıyorsa durdur.
+        if (durum !== 'TARIYOR' && html5QrcodeScanner.current?.getState() === 2) { // 2: SCANNING
+            html5QrcodeScanner.current.stop().catch(err => {
+                console.error('QR okuyucu durdurulurken hata oluştu.', err);
+            });
+            return;
+        }
+        
+        // Sadece tarama durumundaysa başlat.
+        if (durum === 'TARIYOR') {
+            // Yeni bir instance oluştur
+            html5QrcodeScanner.current = new Html5Qrcode('qr-reader', false);
             setMesaj('Kamera başlatılıyor...');
 
-            scanner.start(
-                { facingMode: 'environment' },
-                {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 },
-                },
-                (decodedText, decodedResult) => { // onScanSuccess
-                    if (socket.current) {
+            const onScanSuccess = (decodedText, decodedResult) => {
+                if (socket.current) {
+                    setMesaj('Kod okundu, sunucu onayı bekleniyor...');
+                    // Başarılı okuma sonrası kamerayı hemen durdur
+                    if (html5QrcodeScanner.current?.getState() === 2) {
+                         html5QrcodeScanner.current.stop().then(() => {
+                            socket.current.emit('yoklamaya-katil', { qrToken: decodedText });
+                         }).catch(err => console.error('Okuma sonrası durdurma başarısız', err));
+                    } else {
                         socket.current.emit('yoklamaya-katil', { qrToken: decodedText });
-                        setMesaj('QR Kod okundu, sunucu onayı bekleniyor...');
-                        if (qrcodeScanner.current) {
-                            qrcodeScanner.current.stop();
-                            qrcodeScanner.current = null;
-                        }
                     }
-                },
-                (errorMessage) => { /* onScanFailure, görmezden gel */ }
+                }
+            };
+
+            html5QrcodeScanner.current.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                onScanSuccess,
+                (errorMessage) => { /* onScanFailure'ı görmezden gel */ }
             ).catch(err => {
                 setMesaj('Kamera başlatılamadı. Lütfen kamera izni verdiğinizden emin olun.');
                 setDurum('HATA');
             });
         }
 
+        // Component unmount olduğunda temizlik yap
         return () => {
-            if (qrcodeScanner.current) {
-                qrcodeScanner.current.stop();
-                qrcodeScanner.current = null;
+            if (html5QrcodeScanner.current?.getState() === 2) {
+                html5QrcodeScanner.current.stop().catch(err => {
+                    console.error('Component unmount olurken QR okuyucu durdurulamadı.', err);
+                });
             }
         };
     }, [durum]);
 
-    // --- BEKLEME EKRANI MANTIKLARI (SAYAÇ VE GÖRÜNÜRLÜK) ---
+    // --- BEKLEME EKRANI MANTIKLARI ---
     useEffect(() => {
         if (durum !== 'BEKLIYOR') return;
 
-        // Geri sayım sayacı
         const intervalId = setInterval(() => {
             setKalanSure(prev => (prev > 0 ? prev - 1 : 0));
         }, 1000);
 
-        // Sayfa görünürlüğü dinleyicisi
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
-                if (socket.current) {
-                    socket.current.emit('sayfadan-ayrildim');
-                }
+                if (socket.current) socket.current.emit('sayfadan-ayrildim');
             }
         };
 
@@ -115,19 +121,20 @@ const QROkutucu = () => {
         };
     }, [durum]);
 
-
     const renderContent = () => {
-        switch (durum) {
-            case 'TARIYOR':
-                return (
-                    <>
-                        <div id="qr-reader" className="w-full max-w-xs mx-auto border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg overflow-hidden"></div>
-                        <p className="mt-4 text-center text-gray-500 dark:text-slate-400">{mesaj}</p>
-                    </>
-                );
-            case 'BEKLIYOR':
-                return (
-                    <div className="text-center">
+        // Her zaman render edilecek, ama CSS ile gizlenecek
+        const scannerContainerClass = durum === 'TARIYOR' ? '' : 'hidden';
+
+        return (
+            <div className="w-full">
+                <div id="qr-reader-container" className={scannerContainerClass}>
+                    <div id="qr-reader" className="w-full max-w-xs mx-auto border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg overflow-hidden"></div>
+                </div>
+
+                {durum === 'TARIYOR' && <p className="mt-4 text-center text-gray-500 dark:text-slate-400">{mesaj}</p>}
+                
+                {durum === 'BEKLIYOR' && (
+                     <div className="text-center">
                         <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary mx-auto"></div>
                         <h2 className="text-2xl font-bold mt-6">Yoklamanız Alındı, Lütfen Bekleyin</h2>
                         <p className="text-6xl font-mono font-bold my-4 text-primary">{kalanSure}</p>
@@ -135,34 +142,33 @@ const QROkutucu = () => {
                             Oturum bitene kadar bu sayfadan ayrılmayın. <br/> Aksi halde yoklamanız İPTAL EDİLECEKTİR!
                         </p>
                     </div>
-                );
-            case 'TAMAMLANDI':
-                return (
+                )}
+
+                {durum === 'TAMAMLANDI' && (
                     <div className="text-center text-green-500">
                         <span className="material-symbols-outlined text-8xl">task_alt</span>
                         <h2 className="text-3xl font-bold mt-4">Yoklamanız Başarıyla Kaydedildi!</h2>
                         <p className="mt-2">Artık bu sayfayı kapatabilirsiniz.</p>
                     </div>
-                );
-            case 'IPTAL':
-                return (
+                )}
+
+                {durum === 'IPTAL' && (
                     <div className="text-center text-red-500">
                         <span className="material-symbols-outlined text-8xl">cancel</span>
                         <h2 className="text-3xl font-bold mt-4">Yoklamanız İptal Edildi!</h2>
                         <p className="mt-2">Oturum bitmeden sayfadan ayrıldığınız için kaydınız alınmadı.</p>
                     </div>
-                );
-            case 'HATA':
-                 return (
+                )}
+
+                {durum === 'HATA' && (
                     <div className="text-center text-red-500">
                         <span className="material-symbols-outlined text-8xl">error</span>
                         <h2 className="text-3xl font-bold mt-4">Bir Hata Oluştu</h2>
                         <p className="mt-2">{mesaj}</p>
                     </div>
-                );
-            default:
-                return null;
-        }
+                )}
+            </div>
+        );
     };
 
     return (
