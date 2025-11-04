@@ -5,136 +5,236 @@ import { QRCodeSVG } from 'qrcode.react';
 import io from 'socket.io-client';
 
 const YoklamaEkrani = () => {
-    const [yoklamaId, setYoklamaId] = useState(null);
-    const [katilanlar, setKatilanlar] = useState([]);
     const [ders, setDers] = useState(null);
     const [error, setError] = useState(null);
+    const [yoklamaSuresi, setYoklamaSuresi] = useState(90); // Varsayılan süre 90sn
+    
+    // 'idle', 'running', 'finished', 'error'
+    const [yoklamaDurumu, setYoklamaDurumu] = useState('idle'); 
+    
+    const [aktifToken, setAktifToken] = useState(null);
+    const [katilimciSayisi, setKatilimciSayisi] = useState(0);
+
     const { dersId } = useParams();
     const navigate = useNavigate();
     const socket = useRef(null);
 
+    // Ders detaylarını getiren fonksiyon
     const fetchDersDetails = useCallback(async () => {
         try {
             const response = await api.get(`/api/dersler/detay/${dersId}`);
             setDers(response.data);
         } catch (err) {
             setError('Ders detayları yüklenemedi.');
+            setYoklamaDurumu('error');
         }
     }, [dersId]);
 
+    // Component ilk yüklendiğinde ders detaylarını getir
     useEffect(() => {
         const loggedInUser = JSON.parse(localStorage.getItem('user'));
         if (!loggedInUser || loggedInUser.rol !== 'ogretmen') {
             navigate('/login');
+        } else {
+            fetchDersDetails();
+        }
+    }, [navigate, fetchDersDetails]);
+
+    // Socket bağlantısını ve olay dinleyicilerini yöneten useEffect
+    useEffect(() => {
+        // Socket'i sadece yoklama çalışırken bağlı tut
+        if (yoklamaDurumu !== 'running') {
+            if (socket.current) {
+                socket.current.disconnect();
+                socket.current = null;
+            }
             return;
         }
 
-        fetchDersDetails();
+        const user = JSON.parse(localStorage.getItem('user'));
+        socket.current = io(process.env.REACT_APP_API_URL || 'http://localhost:5000', {
+             auth: { token: user?.token }
+        });
 
-        const startSession = async () => {
-            try {
-                const response = await api.post('/api/yoklama/baslat', {
-                    dersId: dersId,
-                    ogretmenId: loggedInUser.id
-                });
-                setYoklamaId(response.data.yoklamaId);
-            } catch (err) {
-                setError('Yoklama oturumu başlatılamadı.');
+        socket.current.on('connect', () => {
+            console.log('Socket sunucusuna bağlandı!');
+        });
+
+        socket.current.on('yeni-qr-token', ({ qrToken }) => {
+            setAktifToken(qrToken);
+        });
+
+        socket.current.on('yoklama-sonlandi', ({ success, message, katilanSayisi }) => {
+            setYoklamaDurumu('finished');
+            setAktifToken(null);
+            if(success) {
+                setKatilimciSayisi(katilanSayisi);
+            } else {
+                setError(message || 'Yoklama sonlandırılırken bir hata oluştu.');
             }
-        };
+        });
+        
+        socket.current.on('connect_error', (err) => {
+            setError('Socket bağlantı hatası: ' + err.message);
+            setYoklamaDurumu('error');
+        });
 
-        startSession();
-
+        // Component unmount olduğunda veya yoklama durumu değiştiğinde socket'i kapat
         return () => {
             if (socket.current) {
                 socket.current.disconnect();
             }
         };
-    }, [dersId, navigate, fetchDersDetails]);
+    }, [yoklamaDurumu]);
 
-    useEffect(() => {
-        if (yoklamaId) {
-            socket.current = io(process.env.REACT_APP_API_URL || 'http://localhost:5000');
-            socket.current.emit('join-yoklama-room', yoklamaId);
-            socket.current.on('yeni-katilimci', (yeniKatilimci) => {
-                setKatilanlar(prevKatilanlar => {
-                    // Prevent duplicates
-                    if (prevKatilanlar.some(k => k.id === yeniKatilimci.id)) {
-                        return prevKatilanlar;
-                    }
-                    return [yeniKatilimci, ...prevKatilanlar];
-                });
-            });
-            socket.current.on('connect_error', (err) => {
-                setError('Socket bağlantı hatası.');
-            });
-        }
-    }, [yoklamaId]);
 
-    const handleBitir = () => {
-        console.log('Yoklama bitirildi.');
-        if (socket.current) {
-            socket.current.disconnect();
+    const handleYoklamaBaslat = async () => {
+        setError(null);
+        setYoklamaDurumu('running'); // UI'ı "çalışıyor" moduna al
+        
+        try {
+            const user = JSON.parse(localStorage.getItem('user'));
+            // 1. Adım: Veritabanında yoklama oturumunu oluştur
+            const response = await api.post('/api/yoklama/baslat', {
+                dersId: dersId,
+                ogretmenId: user.id
+            });
+            const { yoklamaId } = response.data;
+
+            if (!yoklamaId) {
+                throw new Error('Yoklama ID alınamadı.');
+            }
+
+            // 2. Adım: Socket bağlantısı kurulduktan sonra başlatma olayını emit et
+            // useEffect bu adımdaki state değişikliği ile tetiklenip socket'i kuracak
+            // ve biz de burada emit işlemini yapacağız.
+            // Bu küçük gecikme, socket'in kurulmasını garanti eder.
+            setTimeout(() => {
+                 if (socket.current && socket.current.connected) {
+                    socket.current.emit('yoklamayi-baslat', {
+                        dersId: dersId,
+                        sure: yoklamaSuresi,
+                        yoklamaId: yoklamaId
+                    });
+                    console.log('Yoklama başlatma isteği gönderildi.');
+                } else {
+                    // Socket hemen kurulmazsa diye bir fallback
+                    socket.current.on('connect', () => {
+                         socket.current.emit('yoklamayi-baslat', {
+                            dersId: dersId,
+                            sure: yoklamaSuresi,
+                            yoklamaId: yoklamaId
+                        });
+                        console.log('Yoklama başlatma isteği (gecikmeli) gönderildi.');
+                    });
+                }
+            }, 100); // Socket'in kurulması için küçük bir pay
+
+        } catch (err) {
+            setError('Yoklama oturumu başlatılamadı: ' + (err.response?.data?.message || err.message));
+            setYoklamaDurumu('error');
         }
-        navigate('/ders-programi');
     };
 
-    if (error && !ders) {
-        return <div className="min-h-screen bg-background-light dark:bg-background-dark flex justify-center items-center text-red-500">{error}</div>;
+    const handleYoklamaErkenBitir = () => {
+        if (socket.current && socket.current.connected) {
+            socket.current.emit('yoklamayi-erken-bitir', { dersId: dersId });
+            console.log('Yoklamayı erken bitirme isteği gönderildi.');
+            // UI'ı hemen güncelle
+            setAktifToken(null);
+            setYoklamaDurumu('finished'); 
+        } else {
+            setError('Socket bağlantısı yok. Yoklama erken bitirilemedi.');
+            setYoklamaDurumu('error');
+        }
+    };
+    
+    const renderContent = () => {
+        switch (yoklamaDurumu) {
+            case 'running':
+                return (
+                    <div className="text-center">
+                        <h2 className="text-2xl font-bold mb-4">Öğrencileriniz Bu Kodu Okutmalı</h2>
+                        <p className="mb-4 text-gray-500 dark:text-slate-400">QR Kod her 5 saniyede bir yenilenir.</p>
+                        <div className="p-4 bg-white inline-block rounded-lg shadow-inner">
+                            {aktifToken ? <QRCodeSVG value={aktifToken} size={300} /> : <p>QR kod bekleniyor...</p>}
+                        </div>
+                        <button
+                            onClick={handleYoklamaErkenBitir}
+                            className="mt-6 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg flex items-center justify-center mx-auto"
+                        >
+                            <span className="material-symbols-outlined mr-2">stop_circle</span>
+                            Yoklamayı Erken Bitir
+                        </button>
+                    </div>
+                );
+            case 'finished':
+                return (
+                    <div className="text-center">
+                        <span className="material-symbols-outlined text-green-500 text-7xl">task_alt</span>
+                        <h2 className="text-3xl font-bold mt-4 mb-2">Yoklama Tamamlandı</h2>
+                        <p className="text-xl">Toplam <span className="font-bold text-primary">{katilimciSayisi}</span> öğrenci derse katıldı.</p>
+                        <button onClick={() => navigate('/ders-programi')} className="mt-8 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg">
+                            Ders Programına Dön
+                        </button>
+                    </div>
+                );
+            case 'error':
+                 return (
+                    <div className="text-center text-red-500">
+                        <span className="material-symbols-outlined text-7xl">error</span>
+                        <h2 className="text-3xl font-bold mt-4 mb-2">Bir Hata Oluştu</h2>
+                        <p>{error}</p>
+                         <button onClick={() => setYoklamaDurumu('idle')} className="mt-8 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg">
+                            Tekrar Dene
+                        </button>
+                    </div>
+                );
+            case 'idle':
+            default:
+                return (
+                    <div className="text-center max-w-sm mx-auto">
+                        <h2 className="text-2xl font-bold mb-4">Yoklamayı Başlat</h2>
+                        <p className="mb-6 text-gray-500 dark:text-slate-400">Yoklama süresini saniye cinsinden belirtin ve oturumu başlatın.</p>
+                        <div className="mb-6">
+                            <label htmlFor="duration" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Süre (saniye)</label>
+                            <input
+                                type="number"
+                                id="duration"
+                                value={yoklamaSuresi}
+                                onChange={(e) => setYoklamaSuresi(Number(e.target.value))}
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-primary"
+                                min="10"
+                            />
+                        </div>
+                        <button onClick={handleYoklamaBaslat} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded-lg transition-colors text-lg flex items-center justify-center">
+                            <span className="material-symbols-outlined mr-2">qr_code_scanner</span>
+                            Yoklamayı Başlat
+                        </button>
+                    </div>
+                );
+        }
+    };
+
+    if (!ders && yoklamaDurumu !== 'error') {
+        return <div className="min-h-screen bg-background-light dark:bg-background-dark flex justify-center items-center"><p>Ders bilgileri yükleniyor...</p></div>;
     }
 
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark font-display text-[#0d171b] dark:text-slate-50">
             <main className="p-4 sm:p-6 lg:p-8">
-                <div className="max-w-7xl mx-auto">
-                    {/* Header */}
-                    <div className="flex justify-between items-center mb-6">
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex justify-between items-center mb-8">
                         <Link to="/ders-programi" className="flex items-center text-primary hover:underline">
                             <span className="material-symbols-outlined mr-1">arrow_back</span>
-                            Ders Programına Geri Dön
+                            Geri Dön
                         </Link>
-                        <h1 className="text-3xl font-bold text-center">Yoklama: {ders ? ders.dersAdi : '...'}</h1>
-                        <div className="w-48"></div> {/* Spacer */}
+                        <h1 className="text-3xl font-bold text-center">{ders?.dersAdi || 'Yoklama'}</h1>
+                        <div className="w-24"></div>
                     </div>
 
-                    {/* Content Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4">
-                        
-                        {/* QR Code Column */}
-                        <div className="lg:col-span-2 bg-white dark:bg-slate-800 shadow-md rounded-lg p-6 flex flex-col items-center justify-center">
-                            {yoklamaId ? (
-                                <div className="text-center">
-                                    <h2 className="text-2xl font-bold mb-4">Öğrencileriniz Bu Kodu Okutmalı</h2>
-                                    <div className="p-4 bg-white inline-block rounded-lg shadow-inner">
-                                        <QRCodeSVG value={yoklamaId} size={320} />
-                                    </div>
-                                    <p className="mt-4 text-gray-500 dark:text-slate-400">Oturum ID: {yoklamaId}</p>
-                                    <button onClick={handleBitir} className="mt-6 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg">
-                                        Yoklamayı Bitir
-                                    </button>
-                                </div>
-                            ) : (
-                                <p>{error ? error : 'Yoklama oturumu oluşturuluyor...'}</p>
-                            )}
-                        </div>
-
-                        {/* Participants Column */}
-                        <div className="bg-white dark:bg-slate-800 shadow-md rounded-lg p-6">
-                            <h3 className="text-xl font-bold mb-4">Katılan Öğrenciler ({katilanlar.length})</h3>
-                            <ul className="divide-y divide-gray-200 dark:divide-slate-700 max-h-[60vh] overflow-y-auto">
-                                {katilanlar.length > 0 ? katilanlar.map((ogrenci) => (
-                                    <li key={ogrenci.id} className="flex items-center py-3 px-1">
-                                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 dark:bg-slate-600 flex items-center justify-center">
-                                            <span className="material-symbols-outlined text-gray-500 dark:text-slate-400">person</span>
-                                        </div>
-                                        <div className="ml-3">
-                                            <p className="font-bold text-primary text-sm">{ogrenci.ad} {ogrenci.soyad}</p>
-                                            <p className="text-xs text-gray-500 dark:text-slate-400"><span className="font-semibold">No:</span> {ogrenci.okulNumarasi}</p>
-                                        </div>
-                                    </li>
-                                )) : <p className="text-gray-500 dark:text-slate-400 py-4 text-center">Henüz katılan öğrenci yok.</p>}
-                            </ul>
-                        </div>
+                    <div className="bg-white dark:bg-slate-800 shadow-lg rounded-xl p-8 flex flex-col items-center justify-center" style={{ minHeight: '500px' }}>
+                        {renderContent()}
                     </div>
                 </div>
             </main>

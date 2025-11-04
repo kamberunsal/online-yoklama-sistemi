@@ -1,70 +1,159 @@
-const jwt = require('jsonwebtoken');
-const { Yoklama, User } = require('./models');
+const crypto = require('crypto');
+const { Yoklama } = require('./models'); // Sequelize modelini import ediyoruz
+
+// Sunucu hafızasında tutulacak state'ler
+const aktifOturumlar = new Map(); // dersId -> { intervalId, timeoutId, ogretmenSocketId, yoklamaId, baslangicZamani }
+const gecerliTokenlar = new Map(); // qrToken -> dersId
+const beklemeListesi = new Map(); // socket.id -> { ogrenciId, dersId, katilimZamani }
 
 const socketManager = (io) => {
+
+    // GÖREV 1: Yeniden kullanılabilir sonlandırma fonksiyonu
+    const sonlandirYoklama = async (dersId) => {
+        const oturum = aktifOturumlar.get(dersId);
+        if (!oturum) {
+            console.log(`Zaten sonlanmış bir oturum tekrar sonlandırılmaya çalışıldı: Ders ID ${dersId}`);
+            return;
+        }
+
+        console.log(`Yoklama sona eriyor: Ders ID ${dersId}`);
+
+        // Zamanlayıcıları temizle
+        clearInterval(oturum.intervalId);
+        // clearTimeout(oturum.timeoutId); // Zaten ya süre doldu ya da erken bitirildi, tekrar temizlemeye gerek yok
+
+        // Derse ait geçerli token'ları temizle
+        for (const [token, dId] of gecerliTokenlar.entries()) {
+            if (dId === dersId) {
+                gecerliTokenlar.delete(token);
+            }
+        }
+
+        // Veritabanı kaydını bul
+        const yoklamaKaydi = await Yoklama.findByPk(oturum.yoklamaId);
+        if (!yoklamaKaydi) {
+            console.error(`HATA: Yoklama kaydı bulunamadı! ID: ${oturum.yoklamaId}`);
+            io.to(oturum.ogretmenSocketId).emit('yoklama-sonlandi', { success: false, message: 'Veritabanı kaydı bulunamadı.' });
+            aktifOturumlar.delete(dersId);
+            return;
+        }
+
+        const katilanOgrenciler = [];
+        // Bekleme listesindeki öğrencileri işle
+        for (const [socketId, beklemedekiOgrenci] of beklemeListesi.entries()) {
+            if (beklemedekiOgrenci.dersId === dersId) {
+                katilanOgrenciler.push(beklemedekiOgrenci.ogrenciId);
+                io.to(socketId).emit('yoklama-tamamlandi', { message: 'Yoklamanız başarıyla kaydedildi.' });
+                beklemeListesi.delete(socketId);
+            }
+        }
+        
+        // Öğrencileri veritabanına ekle
+        if (katilanOgrenciler.length > 0) {
+            await yoklamaKaydi.addKatilanOgrenciler(katilanOgrenciler);
+            console.log(`${katilanOgrenciler.length} öğrenci ${dersId} dersi için kaydedildi.`);
+        }
+
+        // Öğretmene bilgi ver ve oturumu hafızadan sil
+        io.to(oturum.ogretmenSocketId).emit('yoklama-sonlandi', { success: true, katilanSayisi: katilanOgrenciler.length });
+        aktifOturumlar.delete(dersId);
+        console.log(`Yoklama oturumu başarıyla sonlandı ve temizlendi: Ders ID ${dersId}`);
+    };
+
+
     io.on('connection', (socket) => {
-        console.log('A user connected with socket ID:', socket.id);
+        console.log(`Yeni bir kullanıcı bağlandı: ${socket.id}`);
 
-        socket.on('join-yoklama-room', (yoklamaId) => {
-            socket.join(yoklamaId);
-            console.log(`Socket ${socket.id} joined room ${yoklamaId}`);
-        });
+        socket.on('yoklamayi-baslat', ({ dersId, sure, yoklamaId }) => {
+            console.log(`Yoklama başlatıldı: Ders ID ${dersId}, Süre ${sure}s, Yoklama ID ${yoklamaId}`);
 
-        socket.on('yoklamaya-katil', async (data) => {
-            const { yoklamaId, kullaniciToken } = data;
-
-            if (!yoklamaId || !kullaniciToken) {
-                return socket.emit('error', 'Missing yoklamaId or user token.');
+            if (aktifOturumlar.has(dersId)) {
+                const eskiOturum = aktifOturumlar.get(dersId);
+                clearInterval(eskiOturum.intervalId);
+                clearTimeout(eskiOturum.timeoutId);
+                console.log(`Eski oturum temizlendi: Ders ID ${dersId}`);
             }
 
-            try {
-                // 1. Verify token and get student
-                const decoded = jwt.verify(kullaniciToken, process.env.JWT_SECRET || 'your_jwt_secret');
-                const student = await User.findByPk(decoded.user.id);
+            const ogretmenSocketId = socket.id;
+            const baslangicZamani = Date.now();
 
-                // 2. Find attendance session
-                const yoklama = await Yoklama.findByPk(yoklamaId);
+            // GÖREV 2: Ana zamanlayıcı artık sadece `sonlandirYoklama` fonksiyonunu çağırıyor
+            const timeoutId = setTimeout(() => sonlandirYoklama(dersId), sure * 1000);
 
-                if (!yoklama || !student) {
-                    return socket.emit('error', 'Attendance session or student not found.');
-                }
+            const intervalId = setInterval(() => {
+                const qrToken = crypto.randomUUID();
+                gecerliTokenlar.set(qrToken, dersId);
+                setTimeout(() => { gecerliTokenlar.delete(qrToken); }, 7000);
+                io.to(ogretmenSocketId).emit('yeni-qr-token', { qrToken });
+            }, 5000);
+            
+            const ilkToken = crypto.randomUUID();
+            gecerliTokenlar.set(ilkToken, dersId);
+            setTimeout(() => { gecerliTokenlar.delete(ilkToken); }, 7000);
+            io.to(ogretmenSocketId).emit('yeni-qr-token', { qrToken: ilkToken });
 
-                if (yoklama.yoklamaDurumu !== 'aktif') {
-                    return socket.emit('yoklama-sonlandi', 'This attendance session has ended.');
-                }
+            aktifOturumlar.set(dersId, { intervalId, timeoutId, ogretmenSocketId, yoklamaId, baslangicZamani });
+        });
+        
+        // GÖREV 3: Yoklamayı Erken Bitirme olayı
+        socket.on('yoklamayi-erken-bitir', async ({ dersId }) => {
+            const oturum = aktifOturumlar.get(dersId);
 
-                // 3. Add student to the attendance using the Sequelize association method
-                const hasAttended = await yoklama.hasKatilanOgrenciler(student);
-                if (hasAttended) {
-                    return socket.emit('zaten-katildin', 'You are already marked as present.');
-                }
-
-                await yoklama.addKatilanOgrenciler(student);
-
-                // 4. Prepare student info for the teacher
-                const katilimciBilgisi = {
-                    id: student.id,
-                    ad: student.ad,
-                    soyad: student.soyad,
-                    okulNumarasi: student.okulNumarasi
-                };
-
-                // 5. Emit event to the specific room (teacher)
-                io.to(yoklamaId).emit('yeni-katilimci', katilimciBilgisi);
-
-                socket.emit('katilim-basarili', 'Successfully marked as present!');
-
-            } catch (err) {
-                console.error('Socket event `yoklamaya-katil` error:', err);
-                if (err.name === 'JsonWebTokenError') {
-                    return socket.emit('error', 'Invalid token.');
-                }
-                socket.emit('error', 'An error occurred during attendance.');
+            // Sadece oturumu başlatan öğretmen bitirebilir
+            if (oturum && oturum.ogretmenSocketId === socket.id) {
+                console.log(`Yoklama erken bitiriliyor: Ders ID ${dersId}`);
+                // Ana zamanlayıcıyı iptal et
+                clearTimeout(oturum.timeoutId);
+                // Sonlandırma mantığını manuel olarak tetikle
+                await sonlandirYoklama(dersId);
+            } else {
+                console.log(`Yetkisiz erken bitirme denemesi: Ders ID ${dersId}, Socket ID ${socket.id}`);
             }
         });
 
+        socket.on('yoklamaya-katil', ({ qrToken }) => {
+            if (!gecerliTokenlar.has(qrToken)) {
+                return socket.emit('yoklama-hata', { message: 'Geçersiz veya süresi dolmuş QR kod.' });
+            }
+
+            const dersId = gecerliTokenlar.get(qrToken);
+            const oturum = aktifOturumlar.get(dersId);
+            
+            if (!oturum) {
+                 return socket.emit('yoklama-hata', { message: 'Bu yoklama otumu artık aktif değil.' });
+            }
+
+            if (beklemeListesi.has(socket.id)) {
+                return socket.emit('yoklama-hata', { message: 'Zaten bekleme listesindesiniz.' });
+            }
+            
+            const ogrenciId = socket.handshake.auth.userId;
+            if (!ogrenciId) {
+                 return socket.emit('yoklama-hata', { message: 'Kimlik doğrulanamadı. Lütfen tekrar giriş yapın.' });
+            }
+
+            beklemeListesi.set(socket.id, { ogrenciId, dersId, katilimZamani: new Date() });
+
+            const gecenSureMs = Date.now() - oturum.baslangicZamani;
+            const kalanSureSn = Math.round((oturum.timeoutId._idleTimeout - gecenSureMs) / 1000);
+
+            socket.emit('yoklama-basarili-bekle', { kalanSure: kalanSureSn > 0 ? kalanSureSn : 0 });
+            console.log(`Öğrenci ${ogrenciId} bekleme listesine eklendi. Ders: ${dersId}`);
+        });
+
+        const handleAyrilma = () => {
+            if (beklemeListesi.has(socket.id)) {
+                const { ogrenciId, dersId } = beklemeListesi.get(socket.id);
+                beklemeListesi.delete(socket.id);
+                console.log(`Öğrenci ${ogrenciId} (Ders: ${dersId}) bekleme listesinden ayrıldı.`);
+                socket.emit('yoklama-iptal-edildi', { message: 'Sayfadan ayrıldığınız için yoklama kaydınız iptal edildi.' });
+            }
+        };
+
+        socket.on('sayfadan-ayrildim', handleAyrilma);
         socket.on('disconnect', () => {
-            console.log('User disconnected:', socket.id);
+            handleAyrilma();
+            console.log(`Kullanıcı bağlantısı koptu: ${socket.id}`);
         });
     });
 };
