@@ -10,20 +10,22 @@ const QROkutucu = () => {
     
     const navigate = useNavigate();
     const socket = useRef(null);
-    
-    // QR Kod okuyucu kütüphanesinin bir örneğini (instance) tutmak için ref.
     const html5QrcodeScanner = useRef(null);
 
-    // --- SOCKET.IO YÖNETİMİ ---
+    // --- SOCKET.IO YÖNETİMİ (DÜZELTİLMİŞ AUTH MANTIĞI) ---
     useEffect(() => {
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (!user || !user.token) {
+        const userString = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+
+        if (!userString || !token) {
             navigate('/login');
             return;
         }
 
+        const user = JSON.parse(userString);
+
         socket.current = io(process.env.REACT_APP_API_URL || 'http://localhost:5000', {
-            auth: { userId: user.id, token: user.token }
+            auth: { userId: user.id, token: token } // Düzeltilmiş Auth
         });
 
         socket.current.on('connect', () => console.log('Socket sunucusuna bağlandı.'));
@@ -35,7 +37,6 @@ const QROkutucu = () => {
         socket.current.on('yoklama-iptal-edildi', () => setDurum('IPTAL'));
         socket.current.on('yoklama-hata', ({ message }) => {
             alert(`Hata: ${message}`);
-            // Hata sonrası taramaya geri dön
             setDurum('TARIYOR');
         });
         socket.current.on('connect_error', (err) => {
@@ -48,30 +49,31 @@ const QROkutucu = () => {
         };
     }, [navigate]);
 
-    // --- QR OKUYUCU YÖNETİMİ (Daha stabil hale getirildi) ---
+    // --- QR OKUYUCU YÖNETİMİ ---
     useEffect(() => {
-        // Tarama durumunda değilsek ve okuyucu çalışıyorsa durdur.
-        if (durum !== 'TARIYOR' && html5QrcodeScanner.current?.getState() === 2) { // 2: SCANNING
-            html5QrcodeScanner.current.stop().catch(err => {
-                console.error('QR okuyucu durdurulurken hata oluştu.', err);
-            });
+        if (durum !== 'TARIYOR') {
+            if (html5QrcodeScanner.current?.getState() === 2) { // 2: SCANNING
+                html5QrcodeScanner.current.stop().catch(err => {
+                    console.error('QR okuyucu durdurulurken hata oluştu.', err);
+                });
+            }
             return;
         }
         
-        // Sadece tarama durumundaysa başlat.
         if (durum === 'TARIYOR') {
-            // Yeni bir instance oluştur
             html5QrcodeScanner.current = new Html5Qrcode('qr-reader', false);
             setMesaj('Kamera başlatılıyor...');
 
             const onScanSuccess = (decodedText, decodedResult) => {
                 if (socket.current) {
                     setMesaj('Kod okundu, sunucu onayı bekleniyor...');
-                    // Başarılı okuma sonrası kamerayı hemen durdur
                     if (html5QrcodeScanner.current?.getState() === 2) {
                          html5QrcodeScanner.current.stop().then(() => {
                             socket.current.emit('yoklamaya-katil', { qrToken: decodedText });
-                         }).catch(err => console.error('Okuma sonrası durdurma başarısız', err));
+                         }).catch(err => {
+                            console.error('Okuma sonrası durdurma başarısız', err);
+                            socket.current.emit('yoklamaya-katil', { qrToken: decodedText }); // Yine de gönder
+                         });
                     } else {
                         socket.current.emit('yoklamaya-katil', { qrToken: decodedText });
                     }
@@ -89,7 +91,6 @@ const QROkutucu = () => {
             });
         }
 
-        // Component unmount olduğunda temizlik yap
         return () => {
             if (html5QrcodeScanner.current?.getState() === 2) {
                 html5QrcodeScanner.current.stop().catch(err => {
@@ -122,7 +123,6 @@ const QROkutucu = () => {
     }, [durum]);
 
     const renderContent = () => {
-        // Her zaman render edilecek, ama CSS ile gizlenecek
         const scannerContainerClass = durum === 'TARIYOR' ? '' : 'hidden';
 
         return (
