@@ -60,8 +60,8 @@ const YoklamaEkrani = () => {
             console.log('Socket sunucusuna bağlandı!');
         });
 
-        socket.current.on('yeni-qr-token', ({ qrToken }) => {
-            setAktifToken(qrToken);
+        socket.current.on('yeni-qr-token', ({ token }) => {
+            setAktifToken(token);
         });
 
         socket.current.on('yoklama-sonlandi', ({ success, message, katilanSayisi }) => {
