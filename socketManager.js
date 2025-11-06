@@ -147,40 +147,27 @@ const socketManager = (io) => {
                 }
 
                 let decoded;
-                try {
-                    decoded = verify(kullaniciToken, process.env.JWT_SECRET);
-                } catch (jwtError) {
-                    console.error('JWT Doğrulama Hatası:', jwtError.message);
-                    // Anlaşılır bir hata mesajı fırlat, bu dışarıdaki catch tarafından yakalanacak.
-                    throw new Error('Oturumunuz geçersiz veya süresi dolmuş. Lütfen yeniden giriş yapın.');
-                }
-
-                                const user = await User.findByPk(decoded.id);
-
-                
-
-                                // ----- HATA AYIKLAMA LOGLARI -----
-
-                                console.log('--- YOKLAMAYA KATILIM DEBUG ---');
-
-                                console.log('Gelen Token ID:', decoded.id);
-
-                                console.log('Veritabanından Bulunan Kullanıcı:', JSON.stringify(user, null, 2));
-
-                                if (user) {
-
-                                    console.log('Kullanıcının Rolü:', user.rol);
-
-                                    console.log('Rol \'ogrenci\' mi?:', user.rol === 'ogrenci');
-
+                                try {
+                                    decoded = verify(kullaniciToken, process.env.JWT_SECRET);
+                                } catch (jwtError) {
+                                    console.error('JWT Doğrulama Hatası:', jwtError.message);
+                                    // Anlaşılır bir hata mesajı fırlat, bu dışarıdaki catch tarafından yakalanacak.
+                                    throw new Error('Oturumunuz geçersiz veya süresi dolmuş. Lütfen yeniden giriş yapın.');
                                 }
-
-                                console.log('--- DEBUG SONU ---');
-
-                                // ----- HATA AYIKLAMA SONU -----
-
                 
-
+                                const user = await User.findByPk(decoded.user.id);
+                
+                                // ----- HATA AYIKLAMA LOGLARI -----
+                                console.log('--- YOKLAMAYA KATILIM DEBUG ---');
+                                console.log('Gelen Token ID:', decoded.user.id);
+                                console.log('Veritabanından Bulunan Kullanıcı:', JSON.stringify(user, null, 2));
+                                if (user) {
+                                    console.log('Kullanıcının Rolü:', user.rol);
+                                    console.log('Rol \'ogrenci\' mi?:', user.rol === 'ogrenci');
+                                }
+                                console.log('--- DEBUG SONU ---');
+                                // ----- HATA AYIKLAMA SONU -----
+                
                                 if (!user || user.rol !== 'ogrenci') {
                     return socket.emit('hata', { mesaj: 'Geçersiz kullanıcı veya yetki.' });
                 }
