@@ -89,20 +89,20 @@ const socketManager = (io) => {
         socket.on('yoklamayi-baslat', async ({ dersId, sure }) => {
             try {
                 const ders = await Ders.findByPk(dersId, {
-                    include: [{ model: User, as: 'Ogretmen' }] 
+                    include: [{ model: User, as: 'ogretmen' }] 
                 });
 
                 if (!ders) {
                     return socket.emit('hata', { mesaj: 'Ders bulunamadı.' });
                 }
-                if (!ders.Ogretmen) {
+                if (!ders.ogretmen) {
                     return socket.emit('hata', { mesaj: 'Bu derse atanmış geçerli bir öğretmen bulunamadı.' });
                 }
 
                 // Sequelize ile yeni yoklama kaydı oluştur
                 const yeniYoklama = await Yoklama.create({
                     dersId: ders.id,
-                    ogretmenId: ders.Ogretmen.id,
+                    ogretmenId: ders.ogretmen.id,
                     tarih: new Date(),
                     yoklamaDurumu: 'aktif'
                 });
