@@ -14,6 +14,21 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Basic Route
+app.get('/', (req, res) => {
+    res.send('QR Code Attendance System API is running...');
+});
+
+// Import Routes
+const authRoutes = require('./routes/auth');
+const dersRoutes = require('./routes/ders');
+
+// Use Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/dersler', dersRoutes);
+app.use('/api/yoklama', require('./routes/yoklama'));
+app.use('/api/users', require('./routes/users'));
+
 // Veritabanı ve modelleri içeri aktar
 const sequelize = require('./config/database');
 const db = require('./models');
