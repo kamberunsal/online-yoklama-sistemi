@@ -119,6 +119,11 @@ const socketManager = (io) => {
                     return socket.emit('hata', { mesaj: 'Ders bulunamadı.' });
                 }
 
+                // Defansif kontrol: Derse bir öğretmen atanmış mı?
+                if (!ders.ogretmenId) {
+                    return socket.emit('hata', { mesaj: 'Bu derse atanmış geçerli bir öğretmen bulunamadı.' });
+                }
+
                 // Yeni yoklama kaydı oluştur
                 const yeniYoklama = new Yoklama({
                     dersId: ders._id,

@@ -84,6 +84,14 @@ const YoklamaEkrani = () => {
             setYoklamaDurumu('error');
         });
 
+        socket.current.on('hata', (data) => {
+            setError(`Sunucu hatası: ${data.mesaj}`);
+            setYoklamaDurumu('error');
+            if (socket.current) {
+                socket.current.disconnect();
+            }
+        });
+
         // Component unmount olduğunda veya yoklama durumu değiştiğinde socket'i kapat
         return () => {
             if (socket.current) {
