@@ -130,12 +130,12 @@ const socketManager = (io) => {
                 await yeniYoklama.save();
                 const yoklamaId = yeniYoklama._id;
 
-                console.log(`Yeni yoklama başlatıldı: Ders ID ${dersId}, Yoklama ID ${yoklamaId}, Süre: ${sure} dakika`);
+                console.log(`Yeni yoklama başlatıldı: Ders ID ${dersId}, Yoklama ID ${yoklamaId}, Süre: ${sure} saniye`);
 
                 // Ana oturum zamanlayıcısı (süre sonunda yoklamayı otomatik bitirir)
                 const mainTimeout = setTimeout(() => {
                     sonlandirYoklama(dersId, io);
-                }, sure * 60 * 1000);
+                }, sure * 1000);
 
                 // Her 5 saniyede bir yeni QR kod (token) üreten interval
                 const interval = setInterval(() => {

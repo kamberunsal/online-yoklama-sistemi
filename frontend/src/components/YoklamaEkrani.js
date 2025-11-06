@@ -57,7 +57,12 @@ const YoklamaEkrani = () => {
         });
 
         socket.current.on('connect', () => {
-            console.log('Socket sunucusuna bağlandı!');
+            console.log('Socket sunucusuna bağlandı! Yoklama başlatılıyor...');
+            // Bağlantı kurulur kurulmaz yoklama başlatma olayını gönder.
+            socket.current.emit('yoklamayi-baslat', {
+                dersId: dersId,
+                sure: yoklamaSuresi, // Süreyi saniye cinsinden gönder
+            });
         });
 
         socket.current.on('yeni-qr-token', ({ token }) => {
@@ -85,55 +90,12 @@ const YoklamaEkrani = () => {
                 socket.current.disconnect();
             }
         };
-    }, [yoklamaDurumu]);
+    }, [yoklamaDurumu, dersId, yoklamaSuresi]);
 
 
-    const handleYoklamaBaslat = async () => {
+    const handleYoklamaBaslat = () => {
         setError(null);
-        setYoklamaDurumu('running'); // UI'ı "çalışıyor" moduna al
-        
-        try {
-            const user = JSON.parse(localStorage.getItem('user'));
-            // 1. Adım: Veritabanında yoklama oturumunu oluştur
-            const response = await api.post('/api/yoklama/baslat', {
-                dersId: dersId,
-                ogretmenId: user.id
-            });
-            const { yoklamaId } = response.data;
-
-            if (!yoklamaId) {
-                throw new Error('Yoklama ID alınamadı.');
-            }
-
-            // 2. Adım: Socket bağlantısı kurulduktan sonra başlatma olayını emit et
-            // useEffect bu adımdaki state değişikliği ile tetiklenip socket'i kuracak
-            // ve biz de burada emit işlemini yapacağız.
-            // Bu küçük gecikme, socket'in kurulmasını garanti eder.
-            setTimeout(() => {
-                 if (socket.current && socket.current.connected) {
-                    socket.current.emit('yoklamayi-baslat', {
-                        dersId: dersId,
-                        sure: yoklamaSuresi,
-                        yoklamaId: yoklamaId
-                    });
-                    console.log('Yoklama başlatma isteği gönderildi.');
-                } else {
-                    // Socket hemen kurulmazsa diye bir fallback
-                    socket.current.on('connect', () => {
-                         socket.current.emit('yoklamayi-baslat', {
-                            dersId: dersId,
-                            sure: yoklamaSuresi,
-                            yoklamaId: yoklamaId
-                        });
-                        console.log('Yoklama başlatma isteği (gecikmeli) gönderildi.');
-                    });
-                }
-            }, 100); // Socket'in kurulması için küçük bir pay
-
-        } catch (err) {
-            setError('Yoklama oturumu başlatılamadı: ' + (err.response?.data?.message || err.message));
-            setYoklamaDurumu('error');
-        }
+        setYoklamaDurumu('running'); // Sadece UI'ı "çalışıyor" moduna al, useEffect gerisini halledecek
     };
 
     const handleYoklamaErkenBitir = () => {
