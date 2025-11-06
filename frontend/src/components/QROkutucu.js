@@ -29,10 +29,19 @@ const QROkutucu = () => {
         });
 
         socket.current.on('connect', () => console.log('Socket sunucusuna bağlandı.'));
-        socket.current.on('yoklama-basarili-bekle', ({ kalanSure }) => {
-            setKalanSure(kalanSure);
-            setDurum('BEKLIYOR');
+
+        // Sunucudan gelen onay olayını dinle
+        socket.current.on('katilim-alindi', ({ mesaj }) => {
+            setMesaj(mesaj);
+            setDurum('BEKLIYOR'); // Arayüzü bekleme moduna al
         });
+
+        // Sunucudan gelebilecek genel hataları yakala
+        socket.current.on('hata', ({ mesaj }) => {
+            setMesaj(mesaj || 'Bilinmeyen bir sunucu hatası oluştu.');
+            setDurum('HATA');
+        });
+
         socket.current.on('yoklama-tamamlandi', () => setDurum('TAMAMLANDI'));
         socket.current.on('yoklama-iptal-edildi', () => setDurum('IPTAL'));
         socket.current.on('yoklama-hata', ({ message }) => {
@@ -67,15 +76,22 @@ const QROkutucu = () => {
             const onScanSuccess = (decodedText, decodedResult) => {
                 if (socket.current) {
                     setMesaj('Kod okundu, sunucu onayı bekleniyor...');
+                    const kullaniciToken = localStorage.getItem('token'); // Kullanıcı tokenını al
+
+                    const payload = {
+                        token: decodedText, // QR kod verisi
+                        kullaniciToken: kullaniciToken // Kullanıcının kimlik tokenı
+                    };
+
                     if (html5QrcodeScanner.current?.getState() === 2) {
                          html5QrcodeScanner.current.stop().then(() => {
-                            socket.current.emit('yoklamaya-katil', { qrToken: decodedText });
+                            socket.current.emit('yoklamaya-katil', payload);
                          }).catch(err => {
                             console.error('Okuma sonrası durdurma başarısız', err);
-                            socket.current.emit('yoklamaya-katil', { qrToken: decodedText }); // Yine de gönder
+                            socket.current.emit('yoklamaya-katil', payload); // Yine de gönder
                          });
                     } else {
-                        socket.current.emit('yoklamaya-katil', { qrToken: decodedText });
+                        socket.current.emit('yoklamaya-katil', payload);
                     }
                 }
             };
