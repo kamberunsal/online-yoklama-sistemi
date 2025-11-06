@@ -14,6 +14,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Veritabanı ve modelleri içeri aktar
+const sequelize = require('./config/database');
+const db = require('./models');
+
 const startServer = async () => {
     try {
         await sequelize.authenticate();
