@@ -146,10 +146,16 @@ const socketManager = (io) => {
                     return socket.emit('hata', { mesaj: 'Geçersiz veya süresi dolmuş QR kod!' });
                 }
 
-                const decoded = verify(kullaniciToken, process.env.JWT_SECRET);
-                // Sequelize ile kullanıcıyı bul
-                const user = await User.findByPk(decoded.id);
+                let decoded;
+                try {
+                    decoded = verify(kullaniciToken, process.env.JWT_SECRET);
+                } catch (jwtError) {
+                    console.error('JWT Doğrulama Hatası:', jwtError.message);
+                    // Anlaşılır bir hata mesajı fırlat, bu dışarıdaki catch tarafından yakalanacak.
+                    throw new Error('Oturumunuz geçersiz veya süresi dolmuş. Lütfen yeniden giriş yapın.');
+                }
 
+                const user = await User.findByPk(decoded.id);
                 if (!user || user.rol !== 'ogrenci') {
                     return socket.emit('hata', { mesaj: 'Geçersiz kullanıcı veya yetki.' });
                 }
@@ -173,8 +179,9 @@ const socketManager = (io) => {
                 }
 
             } catch (error) {
-                console.error('Yoklamaya katılım hatası:', error);
-                socket.emit('hata', { mesaj: 'Katılım sırasında bir hata oluştu. Lütfen tekrar deneyin.' });
+                console.error('Yoklamaya katılım hatası:', error.message);
+                // Fırlatılan özel hata mesajını veya genel bir mesajı gönder
+                socket.emit('hata', { mesaj: error.message || 'Katılım sırasında bir hata oluştu. Lütfen tekrar deneyin.' });
             }
         });
 
