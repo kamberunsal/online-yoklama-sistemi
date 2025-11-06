@@ -20,8 +20,8 @@ const db = require('./models');
 
 const startServer = async () => {
     try {
-        await sequelize.authenticate();
-        console.log('PostgreSQL connection has been established successfully.');
+        // await sequelize.authenticate();
+        // console.log('PostgreSQL connection has been established successfully.');
 
         const PORT = process.env.PORT || 5000;
 
