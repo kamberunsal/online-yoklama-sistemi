@@ -19,11 +19,6 @@ const startServer = async () => {
         await sequelize.authenticate();
         console.log('PostgreSQL connection has been established successfully.');
 
-        // { alter: true } seçeneği production'da yavaşlamalara ve timeout'lara neden olabilir.
-        // Sadece eksik tabloları oluşturmak daha güvenlidir.
-        await db.sequelize.sync();
-        console.log('All models were synchronized successfully.');
-
         const PORT = process.env.PORT || 5000;
 
         // Socket.IO Integration
