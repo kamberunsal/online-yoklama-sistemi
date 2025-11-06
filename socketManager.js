@@ -155,8 +155,33 @@ const socketManager = (io) => {
                     throw new Error('Oturumunuz geçersiz veya süresi dolmuş. Lütfen yeniden giriş yapın.');
                 }
 
-                const user = await User.findByPk(decoded.id);
-                if (!user || user.rol !== 'ogrenci') {
+                                const user = await User.findByPk(decoded.id);
+
+                
+
+                                // ----- HATA AYIKLAMA LOGLARI -----
+
+                                console.log('--- YOKLAMAYA KATILIM DEBUG ---');
+
+                                console.log('Gelen Token ID:', decoded.id);
+
+                                console.log('Veritabanından Bulunan Kullanıcı:', JSON.stringify(user, null, 2));
+
+                                if (user) {
+
+                                    console.log('Kullanıcının Rolü:', user.rol);
+
+                                    console.log('Rol \'ogrenci\' mi?:', user.rol === 'ogrenci');
+
+                                }
+
+                                console.log('--- DEBUG SONU ---');
+
+                                // ----- HATA AYIKLAMA SONU -----
+
+                
+
+                                if (!user || user.rol !== 'ogrenci') {
                     return socket.emit('hata', { mesaj: 'Geçersiz kullanıcı veya yetki.' });
                 }
 
