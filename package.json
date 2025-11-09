@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "hash-passwords": "node scripts/hash_passwords.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
