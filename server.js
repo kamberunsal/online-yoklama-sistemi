@@ -1,16 +1,28 @@
 
 const express = require('express');
-
 const cors = require('cors');
 require('dotenv').config({ path: './config/.env' });
 
 const app = express();
 
-// Middleware
+// Geliştirilmiş CORS Yapılandırması
+const whitelist = [
+    'http://localhost:3000', // Yerel geliştirme ortamı
+    'https://yoklama-frontend.onrender.com' // Render frontend adresi
+];
+
 const corsOptions = {
-    origin: 'https://yoklama-frontend.onrender.com',
+    origin: (origin, callback) => {
+        // Eğer istek bir origin belirtmiyorsa (örn. Postman) veya beyaz listede ise izin ver
+        if (!origin || whitelist.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     optionsSuccessStatus: 200
 };
+
 app.use(cors(corsOptions));
 app.use(express.json());
 
@@ -44,11 +56,10 @@ const startServer = async () => {
         const http = require('http');
         const server = http.createServer(app);
         const { Server } = require("socket.io");
+        
+        // Socket.IO için de aynı CORS ayarlarını kullan
         const io = new Server(server, {
-            cors: {
-                origin: "*",
-                methods: ["GET", "POST"]
-            }
+            cors: corsOptions
         });
 
         // Handle Socket.IO connections
