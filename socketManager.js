@@ -28,18 +28,20 @@ const sonlandirYoklama = async (dersId, io) => {
     aktifOturumlar.delete(dersId);
     console.log(`Aktif oturum temizlendi: Ders ID ${dersId}`);
 
-    const kayitListesi = [];
+    const kayitIdListesi = [];
+    const kayitObjectListesi = [];
     const bildirimListesi = [];
 
     beklemeListesi.forEach((value, key) => {
         if (value.dersId === dersId) {
-            kayitListesi.push(value.ogrenciId);
+            kayitIdListesi.push(value.ogrenci.id);
+            kayitObjectListesi.push(value.ogrenci);
             bildirimListesi.push(key);
             beklemeListesi.delete(key);
         }
     });
 
-    console.log(`${kayitListesi.length} öğrenci veritabanına kaydedilecek.`);
+    console.log(`${kayitIdListesi.length} öğrenci veritabanına kaydedilecek.`);
 
     gecerliTokenlar.forEach((value, key) => {
         if (value.dersId === dersId) {
@@ -52,9 +54,9 @@ const sonlandirYoklama = async (dersId, io) => {
     try {
         const yoklama = await Yoklama.findByPk(yoklamaId, { transaction: t });
         if (yoklama) {
-            if (kayitListesi.length > 0) {
+            if (kayitIdListesi.length > 0) {
                 // Sequelize'de many-to-many ilişkiye veri eklemek için add<Alias> kullanılır
-                await yoklama.addKatilanOgrenciler(kayitListesi, { transaction: t });
+                await yoklama.addKatilanOgrenciler(kayitIdListesi, { transaction: t });
             }
             yoklama.yoklamaDurumu = 'tamamlandi';
             await yoklama.save({ transaction: t });
@@ -67,7 +69,12 @@ const sonlandirYoklama = async (dersId, io) => {
         });
 
         if (ogretmenSocketId) {
-            io.to(ogretmenSocketId).emit('yoklama-sonlandi', { success: true, katilanSayisi: kayitListesi.length });
+            // Öğretmene katılanların tam listesini ve yoklama ID'sini gönder
+            io.to(ogretmenSocketId).emit('yoklama-sonlandi', { 
+                success: true, 
+                yoklamaId: yoklamaId,
+                katilanOgrenciler: kayitObjectListesi 
+            });
             console.log(`Öğretmene yoklamanın bittiği bildirildi: Socket ID ${ogretmenSocketId}`);
         }
 
@@ -163,7 +170,7 @@ const socketManager = (io) => {
 
                 const { dersId, yoklamaId } = gecerliToken;
                 beklemeListesi.set(socket.id, {
-                    ogrenciId: user.id,
+                    ogrenci: user, // Store the full user object
                     dersId: dersId,
                     yoklamaId: yoklamaId
                 });

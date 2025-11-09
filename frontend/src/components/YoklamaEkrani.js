@@ -3,23 +3,24 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import { QRCodeSVG } from 'qrcode.react';
 import io from 'socket.io-client';
+import AddStudentModal from './AddStudentModal'; // Modal'ı import et
 
 const YoklamaEkrani = () => {
     const [ders, setDers] = useState(null);
     const [error, setError] = useState(null);
-    const [yoklamaSuresi, setYoklamaSuresi] = useState(90); // Varsayılan süre 90sn
+    const [yoklamaSuresi, setYoklamaSuresi] = useState(90);
     
-    // 'idle', 'running', 'finished', 'error'
     const [yoklamaDurumu, setYoklamaDurumu] = useState('idle'); 
     
     const [aktifToken, setAktifToken] = useState(null);
-    const [katilimciSayisi, setKatilimciSayisi] = useState(0);
+    const [katilanOgrenciler, setKatilanOgrenciler] = useState([]); // Öğrenci listesi için state
+    const [yoklamaId, setYoklamaId] = useState(null); // Yoklama ID'si için state
+    const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
 
     const { dersId } = useParams();
     const navigate = useNavigate();
     const socket = useRef(null);
 
-    // Ders detaylarını getiren fonksiyon
     const fetchDersDetails = useCallback(async () => {
         try {
             const response = await api.get(`/api/dersler/detay/${dersId}`);
@@ -30,7 +31,6 @@ const YoklamaEkrani = () => {
         }
     }, [dersId]);
 
-    // Component ilk yüklendiğinde ders detaylarını getir
     useEffect(() => {
         const loggedInUser = JSON.parse(localStorage.getItem('user'));
         if (!loggedInUser || loggedInUser.rol !== 'ogretmen') {
@@ -40,9 +40,7 @@ const YoklamaEkrani = () => {
         }
     }, [navigate, fetchDersDetails]);
 
-    // Socket bağlantısını ve olay dinleyicilerini yöneten useEffect
     useEffect(() => {
-        // Socket'i sadece yoklama çalışırken bağlı tut
         if (yoklamaDurumu !== 'running') {
             if (socket.current) {
                 socket.current.disconnect();
@@ -58,10 +56,9 @@ const YoklamaEkrani = () => {
 
         socket.current.on('connect', () => {
             console.log('Socket sunucusuna bağlandı! Yoklama başlatılıyor...');
-            // Bağlantı kurulur kurulmaz yoklama başlatma olayını gönder.
             socket.current.emit('yoklamayi-baslat', {
                 dersId: dersId,
-                sure: yoklamaSuresi, // Süreyi saniye cinsinden gönder
+                sure: yoklamaSuresi,
             });
         });
 
@@ -69,13 +66,16 @@ const YoklamaEkrani = () => {
             setAktifToken(token);
         });
 
-        socket.current.on('yoklama-sonlandi', ({ success, message, katilanSayisi }) => {
-            setYoklamaDurumu('finished');
-            setAktifToken(null);
-            if(success) {
-                setKatilimciSayisi(katilanSayisi);
+        // GÜNCELLENMİŞ OLAY DİNLEYİCİ
+        socket.current.on('yoklama-sonlandi', ({ success, yoklamaId, katilanOgrenciler: gelenOgrenciler }) => {
+            if (success) {
+                setYoklamaDurumu('finished');
+                setAktifToken(null);
+                setKatilanOgrenciler(gelenOgrenciler || []);
+                setYoklamaId(yoklamaId);
             } else {
-                setError(message || 'Yoklama sonlandırılırken bir hata oluştu.');
+                setError('Yoklama sonlandırılırken bir hata oluştu.');
+                setYoklamaDurumu('error');
             }
         });
         
@@ -87,38 +87,49 @@ const YoklamaEkrani = () => {
         socket.current.on('hata', (data) => {
             setError(`Sunucu hatası: ${data.mesaj}`);
             setYoklamaDurumu('error');
-            if (socket.current) {
-                socket.current.disconnect();
-            }
+            if (socket.current) socket.current.disconnect();
         });
 
-        // Component unmount olduğunda veya yoklama durumu değiştiğinde socket'i kapat
         return () => {
-            if (socket.current) {
-                socket.current.disconnect();
-            }
+            if (socket.current) socket.current.disconnect();
         };
     }, [yoklamaDurumu, dersId, yoklamaSuresi]);
 
-
     const handleYoklamaBaslat = () => {
         setError(null);
-        setYoklamaDurumu('running'); // Sadece UI'ı "çalışıyor" moduna al, useEffect gerisini halledecek
+        setKatilanOgrenciler([]);
+        setYoklamaId(null);
+        setYoklamaDurumu('running');
     };
 
     const handleYoklamaErkenBitir = () => {
         if (socket.current && socket.current.connected) {
-            socket.current.emit('yoklamayi-erken-bitir', { dersId: dersId });
+            socket.current.emit('yoklamayi-bitir', { dersId: dersId });
             console.log('Yoklamayı erken bitirme isteği gönderildi.');
-            // UI'ı hemen güncelle
-            setAktifToken(null);
-            setYoklamaDurumu('finished'); 
         } else {
             setError('Socket bağlantısı yok. Yoklama erken bitirilemedi.');
             setYoklamaDurumu('error');
         }
     };
-    
+
+    const handleRemoveOgrenci = (ogrenciId) => {
+        if (!yoklamaId) return;
+
+        api.delete(`/api/yoklama/${yoklamaId}/ogrenciler/${ogrenciId}`)
+            .then(() => {
+                setKatilanOgrenciler(prev => prev.filter(o => o.id !== ogrenciId));
+            })
+            .catch(err => {
+                alert('Öğrenci kaldırılamadı.');
+                console.error(err);
+            });
+    };
+
+    const handleStudentAdded = (yeniOgrenci) => {
+        setKatilanOgrenciler(prev => [...prev, yeniOgrenci]);
+        setIsAddStudentModalOpen(false);
+    };
+
     const renderContent = () => {
         switch (yoklamaDurumu) {
             case 'running':
@@ -140,10 +151,42 @@ const YoklamaEkrani = () => {
                 );
             case 'finished':
                 return (
-                    <div className="text-center">
+                    <div className="w-full max-w-2xl text-center">
                         <span className="material-symbols-outlined text-green-500 text-7xl">task_alt</span>
                         <h2 className="text-3xl font-bold mt-4 mb-2">Yoklama Tamamlandı</h2>
-                        <p className="text-xl">Toplam <span className="font-bold text-primary">{katilimciSayisi}</span> öğrenci derse katıldı.</p>
+                        <p className="text-xl mb-6">Toplam <span className="font-bold text-primary">{katilanOgrenciler.length}</span> öğrenci derse katıldı.</p>
+                        
+                        <div className="bg-gray-50 dark:bg-slate-900/50 rounded-lg p-4 text-left">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-semibold">Katılan Öğrenciler</h3>
+                                <button 
+                                    onClick={() => setIsAddStudentModalOpen(true)}
+                                    className="bg-green-500 hover:bg-green-600 text-white font-bold p-2 rounded-full transition-colors duration-200 flex items-center justify-center"
+                                    aria-label="Öğrenci Ekle"
+                                >
+                                    <span className="material-symbols-outlined">add</span>
+                                </button>
+                            </div>
+                            <div className="max-h-60 overflow-y-auto">
+                                <table className="min-w-full">
+                                    <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
+                                        {katilanOgrenciler.map(ogrenci => (
+                                            <tr key={ogrenci.id}>
+                                                <td className="px-4 py-2 font-medium">{ogrenci.ad} {ogrenci.soyad}</td>
+                                                <td className="px-4 py-2 text-gray-500 dark:text-slate-400">{ogrenci.okulNumarasi}</td>
+                                                <td className="px-4 py-2 text-right">
+                                                    <button onClick={() => handleRemoveOgrenci(ogrenci.id)} className="text-red-600 hover:text-red-900 dark:hover:text-red-400">
+                                                        <span className="material-symbols-outlined">person_remove</span>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {katilanOgrenciler.length === 0 && <p className="text-center text-gray-500 py-4">Katılan öğrenci bulunmuyor.</p>}
+                            </div>
+                        </div>
+
                         <button onClick={() => navigate('/ders-programi')} className="mt-8 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg">
                             Ders Programına Dön
                         </button>
@@ -155,7 +198,7 @@ const YoklamaEkrani = () => {
                         <span className="material-symbols-outlined text-7xl">error</span>
                         <h2 className="text-3xl font-bold mt-4 mb-2">Bir Hata Oluştu</h2>
                         <p>{error}</p>
-                         <button onClick={() => setYoklamaDurumu('idle')} className="mt-8 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg">
+                         <button onClick={handleYoklamaBaslat} className="mt-8 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg">
                             Tekrar Dene
                         </button>
                     </div>
@@ -191,24 +234,35 @@ const YoklamaEkrani = () => {
     }
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark font-display text-[#0d171b] dark:text-slate-50">
-            <main className="p-4 sm:p-6 lg:p-8">
-                <div className="max-w-4xl mx-auto">
-                    <div className="flex justify-between items-center mb-8">
-                        <Link to="/ders-programi" className="flex items-center text-primary hover:underline">
-                            <span className="material-symbols-outlined mr-1">arrow_back</span>
-                            Geri Dön
-                        </Link>
-                        <h1 className="text-3xl font-bold text-center">{ders?.dersAdi || 'Yoklama'}</h1>
-                        <div className="w-24"></div>
-                    </div>
+        <>
+            <div className="min-h-screen bg-background-light dark:bg-background-dark font-display text-[#0d171b] dark:text-slate-50">
+                <main className="p-4 sm:p-6 lg:p-8">
+                    <div className="max-w-4xl mx-auto">
+                        <div className="flex justify-between items-center mb-8">
+                            <Link to="/ders-programi" className="flex items-center text-primary hover:underline">
+                                <span className="material-symbols-outlined mr-1">arrow_back</span>
+                                Geri Dön
+                            </Link>
+                            <h1 className="text-3xl font-bold text-center">{ders?.dersAdi || 'Yoklama'}</h1>
+                            <div className="w-24"></div>
+                        </div>
 
-                    <div className="bg-white dark:bg-slate-800 shadow-lg rounded-xl p-8 flex flex-col items-center justify-center" style={{ minHeight: '500px' }}>
-                        {renderContent()}
+                        <div className="bg-white dark:bg-slate-800 shadow-lg rounded-xl p-8 flex flex-col items-center justify-center" style={{ minHeight: '500px' }}>
+                            {renderContent()}
+                        </div>
                     </div>
-                </div>
-            </main>
-        </div>
+                </main>
+            </div>
+            {isAddStudentModalOpen && (
+                <AddStudentModal 
+                    dersId={dersId}
+                    yoklamaId={yoklamaId}
+                    mevcutOgrenciler={katilanOgrenciler}
+                    onStudentAdded={handleStudentAdded}
+                    onClose={() => setIsAddStudentModalOpen(false)}
+                />
+            )}
+        </>
     );
 };
 
