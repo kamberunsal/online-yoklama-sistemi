@@ -77,19 +77,11 @@ const DersProgrami = () => {
     };
 
     const handleEventClick = (clickInfo) => {
-        const now = new Date();
-        const eventStartTime = clickInfo.event.start;
-        const eventEndTime = clickInfo.event.end;
-
         if (user.rol === 'ogretmen') {
-            // Eğer ders şu an aktif ise yoklama ekranına git
-            if (now >= eventStartTime && now <= eventEndTime) {
-                navigate(`/yoklama/${clickInfo.event.id}`);
-            } else {
-                // Değilse, geçmiş yoklama kayıtları modalını aç
-                setSelectedDers(clickInfo.event.extendedProps);
-                setIsModalOpen(true);
-            }
+            // İstenen yeni davranış: Her zaman yoklama kayıtları modalını aç.
+            // Öğretmen yoklamayı oradaki butondan başlatacak.
+            setSelectedDers(clickInfo.event.extendedProps);
+            setIsModalOpen(true);
         } else { // Öğrenci ise QR okutma ekranına git
             navigate('/qr-okut');
         }
