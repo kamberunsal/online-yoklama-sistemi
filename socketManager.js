@@ -199,6 +199,15 @@ const socketManager = (io) => {
             sonlandirYoklama(dersId, io);
         });
 
+        socket.on('sayfadan-ayrildim', () => {
+            if (beklemeListesi.has(socket.id)) {
+                beklemeListesi.delete(socket.id);
+                console.log(`Öğrenci sayfadan ayrıldığı için bekleme listesinden silindi: ${socket.id}`);
+                // Öğrenciye yoklamasının iptal edildiğini bildir
+                socket.emit('yoklama-iptal-edildi');
+            }
+        });
+
         socket.on('disconnect', () => {
             console.log(`Bir kullanıcı ayrıldı: ${socket.id}`);
             aktifOturumlar.forEach((value, key) => {
