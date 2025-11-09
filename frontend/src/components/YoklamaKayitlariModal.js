@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // useNavigate import et
 import api from '../api';
 import AddStudentModal from './AddStudentModal'; // Import the new modal
 
@@ -9,6 +10,7 @@ const YoklamaKayitlariModal = ({ ders, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false); // State for the new modal
+    const navigate = useNavigate(); // useNavigate hook'unu kullan
 
     useEffect(() => {
         if (ders) {
@@ -75,6 +77,14 @@ const YoklamaKayitlariModal = ({ ders, onClose }) => {
         setOgrenciler(prevOgrenciler => [...prevOgrenciler, yeniOgrenci]);
         setIsAddStudentModalOpen(false); // Close the modal after adding
     };
+
+    // Yeni yoklama başlatma fonksiyonu
+    const handleYeniYoklamaBaslat = () => {
+        if (ders && ders.id) {
+            navigate(`/yoklama/${ders.id}`);
+            onClose(); // Modalı kapat
+        }
+    };
     
     const formatTarih = (tarih) => {
         const date = new Date(tarih);
@@ -87,9 +97,18 @@ const YoklamaKayitlariModal = ({ ders, onClose }) => {
                 <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-4xl h-[80vh] flex flex-col">
                     <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center">
                         <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">Yoklama Kayıtları: {ders?.dersAdi}</h2>
-                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800 dark:hover:text-slate-300">
-                            <span className="material-symbols-outlined">close</span>
-                        </button>
+                        <div className="flex items-center space-x-4">
+                            <button 
+                                onClick={handleYeniYoklamaBaslat}
+                                className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 flex items-center"
+                            >
+                                <span className="material-symbols-outlined mr-2">add_task</span>
+                                Yeni Yoklama Başlat
+                            </button>
+                            <button onClick={onClose} className="text-gray-500 hover:text-gray-800 dark:hover:text-slate-300">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex-grow flex overflow-hidden">
@@ -177,6 +196,3 @@ const YoklamaKayitlariModal = ({ ders, onClose }) => {
             )}
         </>
     );
-};
-
-export default YoklamaKayitlariModal;
