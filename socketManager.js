@@ -53,8 +53,8 @@ const sonlandirYoklama = async (dersId, io) => {
         const yoklama = await Yoklama.findByPk(yoklamaId, { transaction: t });
         if (yoklama) {
             if (kayitListesi.length > 0) {
-                // Sequelize'de many-to-many ilişkiye veri eklemek için add<ModelAdıÇoğul> kullanılır
-                await yoklama.addOgrenciler(kayitListesi, { transaction: t });
+                // Sequelize'de many-to-many ilişkiye veri eklemek için add<Alias> kullanılır
+                await yoklama.addKatilanOgrenciler(kayitListesi, { transaction: t });
             }
             yoklama.yoklamaDurumu = 'tamamlandi';
             await yoklama.save({ transaction: t });
