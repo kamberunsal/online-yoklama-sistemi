@@ -50,6 +50,10 @@ const startServer = async () => {
         await sequelize.authenticate();
         console.log('PostgreSQL connection has been established successfully.');
 
+        // Modellerle veritabanını senkronize et (eksik tabloları oluştur)
+        await db.sequelize.sync();
+        console.log('Database synchronized with models.');
+
         const PORT = process.env.PORT || 5000;
 
         // Socket.IO Integration

@@ -1,4 +1,4 @@
-INSERT INTO ogrenciler (ad, soyad, ogrenci_no, eposta, sifre) VALUES
+INSERT INTO ogrenciler (ad, soyad, okulNumarasi, eposta, sifre) VALUES
 ('Rabia', 'KURT', '212211007', 'rabiakurt@gmail.com', '123456'),
 ('Melike', 'BEZİRKANOĞLU', '212211023', 'melikebezirkanoglu@gmail.com', '123456'),
 ('Hasan', 'Nail DOĞAN', '212211030', 'hasannaildogan@gmail.com', '123456'),
