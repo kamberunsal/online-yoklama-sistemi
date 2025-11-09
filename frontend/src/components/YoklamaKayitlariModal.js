@@ -196,3 +196,6 @@ const YoklamaKayitlariModal = ({ ders, onClose }) => {
             )}
         </>
     );
+};
+
+export default YoklamaKayitlariModal;
