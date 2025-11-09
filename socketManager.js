@@ -147,28 +147,17 @@ const socketManager = (io) => {
                 }
 
                 let decoded;
-                                try {
-                                    decoded = verify(kullaniciToken, process.env.JWT_SECRET);
-                                } catch (jwtError) {
-                                    console.error('JWT Doğrulama Hatası:', jwtError.message);
-                                    // Anlaşılır bir hata mesajı fırlat, bu dışarıdaki catch tarafından yakalanacak.
-                                    throw new Error('Oturumunuz geçersiz veya süresi dolmuş. Lütfen yeniden giriş yapın.');
-                                }
+                try {
+                    decoded = verify(kullaniciToken, process.env.JWT_SECRET);
+                } catch (jwtError) {
+                    console.error('JWT Doğrulama Hatası:', jwtError.message);
+                    throw new Error('Oturumunuz geçersiz veya süresi dolmuş. Lütfen yeniden giriş yapın.');
+                }
                 
-                                const user = await User.findByPk(decoded.user.id);
+                console.log(`[DEBUG] Yoklamaya katılım için User.findByPk çağrılıyor. ID: ${decoded.user.id}`);
+                const user = await User.findByPk(decoded.user.id);
                 
-                                // ----- HATA AYIKLAMA LOGLARI -----
-                                console.log('--- YOKLAMAYA KATILIM DEBUG ---');
-                                console.log('Gelen Token ID:', decoded.user.id);
-                                console.log('Veritabanından Bulunan Kullanıcı:', JSON.stringify(user, null, 2));
-                                if (user) {
-                                    console.log('Kullanıcının Rolü:', user.rol);
-                                    console.log('Rol \'ogrenci\' mi?:', user.rol === 'ogrenci');
-                                }
-                                console.log('--- DEBUG SONU ---');
-                                // ----- HATA AYIKLAMA SONU -----
-                
-                                if (!user || user.rol !== 'ogrenci') {
+                if (!user || user.rol !== 'ogrenci') {
                     return socket.emit('hata', { mesaj: 'Geçersiz kullanıcı veya yetki.' });
                 }
 
@@ -191,9 +180,10 @@ const socketManager = (io) => {
                 }
 
             } catch (error) {
-                console.error('Yoklamaya katılım hatası:', error.message);
-                // Fırlatılan özel hata mesajını veya genel bir mesajı gönder
-                socket.emit('hata', { mesaj: error.message || 'Katılım sırasında bir hata oluştu. Lütfen tekrar deneyin.' });
+                console.error('--- YAKALANAN VERİTABANI HATASI ---');
+                console.error(JSON.stringify(error, null, 2));
+                console.error('--- HATA SONU ---');
+                socket.emit('hata', { mesaj: 'Yoklama alınırken veritabanı ile hata oluştu.' });
             }
         });
 
