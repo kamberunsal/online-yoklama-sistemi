@@ -37,12 +37,10 @@ exports.downloadYoklamaPDF = async (req, res) => {
         const katilanIdSet = new Set(yoklama.katilanOgrenciler.map(o => o.id));
         const kayitliOgrenciler = ders.kayitliOgrenciler.sort((a, b) => (a.okulNumarasi || '').localeCompare(b.okulNumarasi));
 
-        // Font dosyasını yönetme
         const fontName = 'DejaVuSans.ttf';
         const fontPath = path.join(__dirname, '..', 'assets', 'fonts', fontName);
         const fontUrl = 'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf';
 
-        // Font yoksa indir
         if (!fs.existsSync(fontPath)) {
             try {
                 const response = await axios.get(fontUrl, { responseType: 'arraybuffer' });
@@ -53,40 +51,51 @@ exports.downloadYoklamaPDF = async (req, res) => {
             }
         }
 
-        const doc = new PDFDocument({ margin: 50 });
+        const doc = new PDFDocument({ margin: 50, bufferPages: true });
 
         const filename = `yoklama-${ders.dersAdi}-${new Date(yoklama.tarih).toLocaleDateString('tr-TR')}.pdf`;
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
         doc.pipe(res);
 
-        // Fontu kaydet ve kullan
         doc.registerFont('DejaVuSans', fontPath);
-        
-        // Başlık
-        doc.font('DejaVuSans').fontSize(18).text(`${ders.dersAdi}`, { align: 'center' });
+        doc.font('DejaVuSans');
+
+        // Sayfa başlığı
+        doc.fontSize(18).text(`${ders.dersAdi}`, { align: 'center' });
         doc.fontSize(12).text(`(${ders.sinif})`, { align: 'center' });
         doc.moveDown();
         doc.fontSize(14).text(`Yoklama Tarihi: ${new Date(yoklama.tarih).toLocaleString('tr-TR')}`, { align: 'center' });
         doc.moveDown(2);
 
-        // Tablo Başlıkları
         const tableTop = doc.y;
         const itemX = 50;
         const statusX = 50;
         const numX = 150;
         const nameX = 250;
-        
-        doc.fontSize(10);
-        doc.text('Durum', statusX, tableTop);
-        doc.text('Okul Numarası', numX, tableTop);
-        doc.text('Öğrenci Adı Soyadı', nameX, tableTop);
-        doc.moveTo(itemX, doc.y + 5).lineTo(doc.page.width - itemX, doc.y + 5).stroke();
-        doc.moveDown();
 
-        // Tablo İçeriği
+        const drawTableHeader = () => {
+            doc.fontSize(10);
+            doc.text('Durum', statusX, doc.y);
+            doc.text('Okul Numarası', numX, doc.y);
+            doc.text('Öğrenci Adı Soyadı', nameX, doc.y);
+            doc.moveDown();
+            doc.moveTo(itemX, doc.y).lineTo(doc.page.width - itemX, doc.y).stroke();
+            doc.moveDown(0.5);
+        };
+
+        drawTableHeader();
+        
         doc.fontSize(12);
+        const rowHeight = 20; // Her satır için yaklaşık yükseklik
+
         kayitliOgrenciler.forEach(ogrenci => {
+            // Sayfa sonuna gelip gelmediğini kontrol et
+            if (doc.y + rowHeight > doc.page.height - doc.page.margins.bottom) {
+                doc.addPage();
+                drawTableHeader();
+            }
+            
             const y = doc.y;
             const katildi = katilanIdSet.has(ogrenci.id);
 
