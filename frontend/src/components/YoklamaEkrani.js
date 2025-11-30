@@ -32,7 +32,9 @@ const YoklamaEkrani = () => {
     }, [dersId]);
 
     useEffect(() => {
-        const loggedInUser = JSON.parse(localStorage.getItem('user'));
+        const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
+        const loggedInUser = userString ? JSON.parse(userString) : null;
+
         if (!loggedInUser || loggedInUser.rol !== 'ogretmen') {
             navigate('/login');
         } else {
