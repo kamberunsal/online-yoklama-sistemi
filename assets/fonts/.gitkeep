@@ -1,0 +1,2 @@
+# This file is here to make git track the otherwise empty 'fonts' directory.
+# The actual font file will be downloaded at runtime if it doesn't exist.

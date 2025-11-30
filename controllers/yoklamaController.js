@@ -1,6 +1,8 @@
 const { Yoklama, Ders, User } = require('../models');
 const PDFDocument = require('pdfkit');
 const path = require('path');
+const fs = require('fs');
+const axios = require('axios');
 
 // @desc    Download an attendance record as a PDF
 // @route   GET /api/yoklama/:id/pdf
@@ -12,7 +14,7 @@ exports.downloadYoklamaPDF = async (req, res) => {
                 {
                     model: User,
                     as: 'katilanOgrenciler',
-                    attributes: ['id'], // Sadece ID'leri almamız yeterli
+                    attributes: ['id'],
                 },
                 {
                     model: Ders,
@@ -35,18 +37,35 @@ exports.downloadYoklamaPDF = async (req, res) => {
         const katilanIdSet = new Set(yoklama.katilanOgrenciler.map(o => o.id));
         const kayitliOgrenciler = ders.kayitliOgrenciler.sort((a, b) => (a.okulNumarasi || '').localeCompare(b.okulNumarasi));
 
+        // Font dosyasını yönetme
+        const fontName = 'DejaVuSans.ttf';
+        const fontPath = path.join(__dirname, '..', 'assets', 'fonts', fontName);
+        const fontUrl = 'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf';
+
+        // Font yoksa indir
+        if (!fs.existsSync(fontPath)) {
+            try {
+                const response = await axios.get(fontUrl, { responseType: 'arraybuffer' });
+                fs.writeFileSync(fontPath, response.data);
+            } catch (fontError) {
+                console.error('Font could not be downloaded:', fontError);
+                return res.status(500).send('Error preparing PDF: Font file is missing and could not be downloaded.');
+            }
+        }
 
         const doc = new PDFDocument({ margin: 50 });
 
-        // PDF'i doğrudan response'a stream et
         const filename = `yoklama-${ders.dersAdi}-${new Date(yoklama.tarih).toLocaleDateString('tr-TR')}.pdf`;
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
         doc.pipe(res);
 
+        // Fontu kaydet ve kullan
+        doc.registerFont('DejaVuSans', fontPath);
+        
         // Başlık
-        doc.fontSize(18).font('Helvetica-Bold').text(`${ders.dersAdi}`, { align: 'center' });
-        doc.fontSize(12).font('Helvetica').text(`(${ders.sinif})`, { align: 'center' });
+        doc.font('DejaVuSans').fontSize(18).text(`${ders.dersAdi}`, { align: 'center' });
+        doc.fontSize(12).text(`(${ders.sinif})`, { align: 'center' });
         doc.moveDown();
         doc.fontSize(14).text(`Yoklama Tarihi: ${new Date(yoklama.tarih).toLocaleString('tr-TR')}`, { align: 'center' });
         doc.moveDown(2);
@@ -54,33 +73,29 @@ exports.downloadYoklamaPDF = async (req, res) => {
         // Tablo Başlıkları
         const tableTop = doc.y;
         const itemX = 50;
-        const statusX = 150;
+        const statusX = 50;
+        const numX = 150;
         const nameX = 250;
-        const numX = 450;
-
-        doc.fontSize(10).font('Helvetica-Bold');
+        
+        doc.fontSize(10);
         doc.text('Durum', statusX, tableTop);
+        doc.text('Okul Numarası', numX, tableTop);
         doc.text('Öğrenci Adı Soyadı', nameX, tableTop);
-        doc.text('Okul Numarası', numX, tableTop, { width: 100, align: 'right' });
         doc.moveTo(itemX, doc.y + 5).lineTo(doc.page.width - itemX, doc.y + 5).stroke();
         doc.moveDown();
 
         // Tablo İçeriği
-        doc.fontSize(12).font('Helvetica');
+        doc.fontSize(12);
         kayitliOgrenciler.forEach(ogrenci => {
             const y = doc.y;
             const katildi = katilanIdSet.has(ogrenci.id);
 
-            // Unicode karakterler için font belirtmek önemlidir.
-            // 'DejaVu Sans' gibi geniş karakter setine sahip bir font kullanmak en iyisidir.
-            // Eğer sistemde yoksa, temel semboller için 'Helvetica' deneyebiliriz.
-            doc.font('Helvetica').text(katildi ? 'Katıldı' : 'Katılmadı', statusX, y);
+            doc.text(katildi ? '✓' : '✗', statusX, y, { width: 50, align: 'center' });
+            doc.text(ogrenci.okulNumarasi || 'N/A', numX, y);
             doc.text(`${ogrenci.ad} ${ogrenci.soyad}`, nameX, y);
-            doc.text(ogrenci.okulNumarasi || 'N/A', numX, y, { width: 100, align: 'right' });
             doc.moveDown();
         });
 
-        // PDF'i bitir
         doc.end();
 
     } catch (err) {
