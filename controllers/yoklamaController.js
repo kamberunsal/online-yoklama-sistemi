@@ -68,14 +68,15 @@ exports.downloadYoklamaPDF = async (req, res) => {
         doc.fontSize(14).text(`Yoklama Tarihi: ${new Date(yoklama.tarih).toLocaleString('tr-TR')}`, { align: 'center' });
         doc.moveDown(2);
 
-        const tableTop = doc.y;
         const itemX = 50;
-        const statusX = 50;
-        const numX = 150;
-        const nameX = 250;
+        const siraNoX = itemX;
+        const statusX = siraNoX + 40; // Sıra No'dan sonra
+        const numX = statusX + 50;    // Durumdan sonra
+        const nameX = numX + 100;     // Okul Numarasından sonra
 
         const drawTableHeader = () => {
             doc.fontSize(10);
+            doc.text('Sıra', siraNoX, doc.y);
             doc.text('Durum', statusX, doc.y);
             doc.text('Okul Numarası', numX, doc.y);
             doc.text('Öğrenci Adı Soyadı', nameX, doc.y);
@@ -88,6 +89,7 @@ exports.downloadYoklamaPDF = async (req, res) => {
         
         doc.fontSize(12);
         const rowHeight = 20; // Her satır için yaklaşık yükseklik
+        let siraNo = 1; // Sıra numarası sayacı
 
         kayitliOgrenciler.forEach(ogrenci => {
             // Sayfa sonuna gelip gelmediğini kontrol et
@@ -99,10 +101,12 @@ exports.downloadYoklamaPDF = async (req, res) => {
             const y = doc.y;
             const katildi = katilanIdSet.has(ogrenci.id);
 
+            doc.text(siraNo.toString(), siraNoX, y, { width: 30, align: 'left' });
             doc.text(katildi ? '✓' : '✗', statusX, y, { width: 50, align: 'center' });
             doc.text(ogrenci.okulNumarasi || 'N/A', numX, y);
             doc.text(`${ogrenci.ad} ${ogrenci.soyad}`, nameX, y);
             doc.moveDown();
+            siraNo++;
         });
 
         doc.end();
