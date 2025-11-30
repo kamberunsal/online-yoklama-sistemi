@@ -71,8 +71,11 @@ const DersProgrami = () => {
     }, []);
 
     const handleLogout = () => {
+        // Hem localStorage hem de sessionStorage'ı temizle
         localStorage.removeItem('user');
         localStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+        sessionStorage.removeItem('token');
         navigate('/login');
     };
 

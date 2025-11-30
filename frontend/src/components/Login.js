@@ -6,6 +6,7 @@ const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false); // Beni Hatırla state'i
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
@@ -19,8 +20,9 @@ const Login = () => {
                 password,
             });
 
-            localStorage.setItem('token', response.data.token);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
+            const storage = rememberMe ? localStorage : sessionStorage;
+            storage.setItem('token', response.data.token);
+            storage.setItem('user', JSON.stringify(response.data.user));
 
             if (response.data.user.rol === 'admin') {
                 navigate('/admin/dashboard');
@@ -88,13 +90,25 @@ const Login = () => {
                         </label>
                     </div>
 
+                    <div className="px-4 py-3">
+                        <label className="flex items-center">
+                            <input
+                                type="checkbox"
+                                className="form-checkbox h-5 w-5 text-primary rounded focus:ring-primary/50 border-[#cfdfe7] dark:border-slate-700 bg-background-light dark:bg-slate-800"
+                                checked={rememberMe}
+                                onChange={(e) => setRememberMe(e.target.checked)}
+                            />
+                            <span className="ml-2 text-[#0d171b] dark:text-slate-50">Beni Hatırla</span>
+                        </label>
+                    </div>
+
                     {error && (
                         <div className="px-4 py-1 text-center">
                             <p className="text-red-500 text-sm">{error}</p>
                         </div>
                     )}
 
-                    <div className="flex px-4 py-3 mt-6">
+                    <div className="flex px-4 py-3 mt-2">
                         <button type="submit" className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 flex-1 bg-primary text-slate-50 text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:ring-offset-background-dark">
                             <span className="truncate">Giriş Yap</span>
                         </button>
