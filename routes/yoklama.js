@@ -1,7 +1,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { startAttendance, getAttendanceRecordsByCourse, getAttendanceRecordDetails, deleteAttendanceRecord, removeStudentFromAttendance, addStudentToAttendance } = require('../controllers/yoklamaController');
+const { startAttendance, getAttendanceRecordsByCourse, getAttendanceRecordDetails, deleteAttendanceRecord, removeStudentFromAttendance, addStudentToAttendance, downloadYoklamaPDF } = require('../controllers/yoklamaController');
 
 // @route   POST api/yoklama/baslat
 // @desc    Start a new attendance session
@@ -12,6 +12,11 @@ router.post('/baslat', startAttendance);
 // @desc    Get attendance records for a course
 // @access  Private
 router.get('/kayitlar/:dersId', getAttendanceRecordsByCourse);
+
+// @route   GET api/yoklama/:id/pdf
+// @desc    Download a single attendance record as a PDF
+// @access  Private
+router.get('/:id/pdf', downloadYoklamaPDF);
 
 // @route   GET api/yoklama/:id
 // @desc    Get a single attendance record by ID

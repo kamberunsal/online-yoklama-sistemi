@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // useNavigate import et
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import AddStudentModal from './AddStudentModal'; // Import the new modal
+import AddStudentModal from './AddStudentModal';
+import { saveAs } from 'file-saver'; // file-saver'ı import et
 
 const YoklamaKayitlariModal = ({ ders, onClose }) => {
     const [kayitlar, setKayitlar] = useState([]);
@@ -9,8 +10,8 @@ const YoklamaKayitlariModal = ({ ders, onClose }) => {
     const [ogrenciler, setOgrenciler] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false); // State for the new modal
-    const navigate = useNavigate(); // useNavigate hook'unu kullan
+    const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (ders) {
@@ -60,6 +61,21 @@ const YoklamaKayitlariModal = ({ ders, onClose }) => {
         }
     };
 
+    const handleDownloadPDF = async (kayit) => {
+        try {
+            const response = await api.get(`/api/yoklama/${kayit.id}/pdf`, {
+                responseType: 'blob', // Tarayıcının response'u binary olarak işlemesini sağla
+            });
+            
+            const filename = `yoklama-${ders.dersAdi}-${new Date(kayit.tarih).toLocaleDateString('tr-TR')}.pdf`;
+            saveAs(response.data, filename);
+
+        } catch (err) {
+            setError('PDF indirilemedi.');
+            console.error('PDF download error:', err);
+        }
+    };
+
     const handleRemoveOgrenci = (ogrenciId) => {
         if (!seciliKayit) return;
 
@@ -75,14 +91,13 @@ const YoklamaKayitlariModal = ({ ders, onClose }) => {
 
     const handleStudentAdded = (yeniOgrenci) => {
         setOgrenciler(prevOgrenciler => [...prevOgrenciler, yeniOgrenci]);
-        setIsAddStudentModalOpen(false); // Close the modal after adding
+        setIsAddStudentModalOpen(false);
     };
 
-    // Yeni yoklama başlatma fonksiyonu
     const handleYeniYoklamaBaslat = () => {
         if (ders && ders.id) {
             navigate(`/yoklama/${ders.id}`);
-            onClose(); // Modalı kapat
+            onClose();
         }
     };
     
@@ -125,11 +140,22 @@ const YoklamaKayitlariModal = ({ ders, onClose }) => {
                                             <p className="font-semibold">{formatTarih(kayit.tarih)}</p>
                                             <p className="text-sm">{kayit.yoklamaDurumu}</p>
                                         </div>
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteKayit(kayit.id); }}
-                                            className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 ml-2">
-                                            <span className="material-symbols-outlined">delete</span>
-                                        </button>
+                                        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleDownloadPDF(kayit); }}
+                                                className="text-blue-500 p-1 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/50 ml-2"
+                                                title="PDF olarak indir"
+                                            >
+                                                <span className="material-symbols-outlined">picture_as_pdf</span>
+                                            </button>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteKayit(kayit.id); }}
+                                                className="text-red-500 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 ml-2"
+                                                title="Kaydı sil"
+                                            >
+                                                <span className="material-symbols-outlined">delete</span>
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
