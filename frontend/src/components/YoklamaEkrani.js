@@ -140,8 +140,11 @@ const YoklamaEkrani = () => {
                         <h2 className="text-2xl font-bold mb-4">Öğrencileriniz Bu Kodu Okutmalı</h2>
                         <p className="mb-4 text-gray-500 dark:text-slate-400">QR Kod her 5 saniyede bir yenilenir.</p>
                         <div className="p-4 bg-white inline-block rounded-lg shadow-inner">
-                            {aktifToken ? <QRCodeSVG value={aktifToken} size={300} /> : <p>QR kod bekleniyor...</p>}
+                            {aktifToken ? <QRCodeSVG value={aktifToken} size={384} /> : <p>QR kod bekleniyor...</p>}
                         </div>
+                        <p className="mt-4 text-sm text-gray-600 dark:text-slate-400">
+                           Okutmakta zorlanıyorsanız, ekran parlaklığınızı artırın ve koda yaklaşmayı deneyin.
+                        </p>
                         <button
                             onClick={handleYoklamaErkenBitir}
                             className="mt-6 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg flex items-center justify-center mx-auto"

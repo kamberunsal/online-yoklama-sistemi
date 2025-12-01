@@ -125,13 +125,13 @@ const socketManager = (io) => {
                     const token = Math.random().toString(36).substring(2, 10);
                     gecerliTokenlar.set(token, { dersId, yoklamaId });
                     socket.emit('yeni-qr-token', { token });
-                    setTimeout(() => { gecerliTokenlar.delete(token); }, 6000);
+                    setTimeout(() => { gecerliTokenlar.delete(token); }, 11000);
                 }, 5000);
 
                 const ilkToken = Math.random().toString(36).substring(2, 10);
                 gecerliTokenlar.set(ilkToken, { dersId, yoklamaId });
                 socket.emit('yeni-qr-token', { token: ilkToken });
-                setTimeout(() => { gecerliTokenlar.delete(ilkToken); }, 6000);
+                setTimeout(() => { gecerliTokenlar.delete(ilkToken); }, 11000);
 
                 aktifOturumlar.set(dersId, {
                     intervalId: interval,
