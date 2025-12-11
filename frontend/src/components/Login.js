@@ -18,6 +18,7 @@ const Login = () => {
             const response = await api.post('/api/auth/login', {
                 email,
                 password,
+                rememberMe,
             });
 
             const storage = rememberMe ? localStorage : sessionStorage;

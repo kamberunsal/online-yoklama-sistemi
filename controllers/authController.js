@@ -58,7 +58,7 @@ exports.register = async (req, res) => {
 // @route   POST /api/auth/login
 // @access  Public
 exports.login = async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
     console.log(`[Login] Attempting login for email: ${email}`);
 
     try {
@@ -87,10 +87,12 @@ exports.login = async (req, res) => {
         };
         console.log(`[Login] Creating JWT payload for user: ${user.id}`);
 
+        const expiresIn = rememberMe ? '30d' : '5h';
+
         jwt.sign(
             payload,
             process.env.JWT_SECRET || 'your_jwt_secret',
-            { expiresIn: '5h' },
+            { expiresIn },
             (err, token) => {
                 if (err) {
                     console.error('[Login] JWT Sign Error:', err);
