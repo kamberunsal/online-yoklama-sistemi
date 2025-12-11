@@ -14,8 +14,8 @@ const QROkutucu = () => {
 
     // --- SOCKET.IO YÖNETİMİ (DÜZELTİLMİŞ AUTH MANTIĞI) ---
     useEffect(() => {
-        const userString = localStorage.getItem('user');
-        const token = localStorage.getItem('token');
+        const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
 
         if (!userString || !token) {
             navigate('/login');
@@ -76,7 +76,7 @@ const QROkutucu = () => {
             const onScanSuccess = (decodedText, decodedResult) => {
                 if (socket.current) {
                     setMesaj('Kod okundu, sunucu onayı bekleniyor...');
-                    const kullaniciToken = localStorage.getItem('token'); // Kullanıcı tokenını al
+                    const kullaniciToken = localStorage.getItem('token') || sessionStorage.getItem('token'); // Kullanıcı tokenını al
 
                     const payload = {
                         token: decodedText, // QR kod verisi
